@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: card-platform
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/card-platform
+    username: root
+    password: root
+    hikari:
+      maximumPoolSize: 20
+      minimumIdle: 5
+      poolName: card-platform-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: card-platform-audit-log
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.nium.cardplatform.audit.event"
+
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never # created through liquibase
+    properties:
+      org.quartz.jobStore.isClustered: false
+      org.quartz.threadPool.threadCount: 2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      tags:
+        application: ${spring.application.name}
+
+logging:
+  level:
+    com.nium.cardplatform: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+
+app:
+  rate-limit:
+    requests-per-minute: 100
+  card:
+    default-expiry-years: 2
+  kafka:
+    topics:
+      audit-events: card-audit-events
+  transaction:
+    optimistic-lock-max-retries: 3
