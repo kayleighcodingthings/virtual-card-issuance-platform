@@ -1,0 +1,123 @@
+package com.nium.cardplatform.card.service;
+
+import com.nium.cardplatform.card.entity.Card;
+import com.nium.cardplatform.card.entity.CardStatus;
+import com.nium.cardplatform.card.repository.CardRepository;
+import com.nium.cardplatform.shared.exception.CardPlatformException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class CardService {
+
+    private final CardRepository cardRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Value("${app.card.default-expiry:P2Y}")
+    private Period defaultExpiry;
+
+    @Transactional
+    public Card createCard(String cardholderName, BigDecimal initialBalance, LocalDateTime expiresAt) {
+        LocalDateTime expiry = expiresAt != null ? expiresAt : LocalDateTime.now().plus(defaultExpiry);
+
+        if (expiry.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("expiresAt [" + expiresAt + "] is not in the future.");
+        }
+
+        Card card = Card.builder()
+                .cardholderName(cardholderName)
+                .balance(initialBalance != null ? initialBalance : BigDecimal.ZERO)
+                .status(CardStatus.ACTIVE)
+                .expiresAt(expiresAt)
+                .build();
+
+        Card saved = cardRepository.save(card);
+        log.info("Card created: cardId={} cardholder={}", saved.getId(), saved.getCardholderName());
+        // TODO: Publish Event
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public Card getCard(UUID cardId) {
+        return findOrThrow(cardId);
+    }
+
+    @Transactional
+    public Card blockCard(UUID cardId) {
+        Card card = findOrThrow(cardId);
+        if (card.isTerminated()) {
+            throw CardPlatformException.cardTerminated(cardId, card.getStatus().name());
+        }
+
+        if (card.getStatus() == CardStatus.BLOCKED) {
+            log.info("Card [{}] was already blocked.", cardId);
+            return card; // Idempotent
+        }
+
+        card.setStatus(CardStatus.BLOCKED);
+        Card saved = cardRepository.save(card);
+        log.info("Card [{}] blocked.", cardId);
+        //TODO PUBLISH EVENT
+        return saved;
+    }
+
+    @Transactional
+    public Card unblockCard(UUID cardId) {
+        Card card = findOrThrow(cardId);
+        if (card.isTerminated()) {
+            throw CardPlatformException.cardTerminated(cardId, card.getStatus().name());
+        }
+
+        if (card.getStatus() == CardStatus.ACTIVE) {
+            log.info("Card [{}] was already active.", cardId);
+            return card; // Idempotent
+        }
+
+        if (card.getStatus() != CardStatus.BLOCKED) {
+            throw CardPlatformException.invalidTransition(card.getStatus().name(), "ACTIVE");
+        }
+
+        card.setStatus(CardStatus.ACTIVE);
+        Card saved = cardRepository.save(card);
+        log.info("Card [{}] unblocked.", cardId);
+        //TODO PUBLISH EVENT
+        return saved;
+    }
+
+    @Transactional
+    public Card closeCard(UUID cardId) {
+        Card card = findOrThrow(cardId);
+        if (card.getStatus() == CardStatus.CLOSED) {
+            log.info("Card [{}] was already closed.", cardId);
+            return card; // Idempotent
+        }
+
+        if (card.getStatus() == CardStatus.EXPIRED) {
+            throw CardPlatformException.cardTerminated(cardId, card.getStatus().name());
+        } // Handle EXPIRED on its own not through isTerminated() because it is contradictory to the above if (CLOSED)
+
+        String old = card.getStatus().name();
+        card.setStatus(CardStatus.CLOSED);
+        Card saved = cardRepository.save(card);
+        log.info("Card [{}] closed.", cardId);
+        //TODO PUBLISH EVENT
+        return saved;
+    }
+
+    // TODO: Add Expiry for Quartz
+
+    public Card findOrThrow(UUID cardId) {
+        return cardRepository.findById(cardId).orElseThrow(() -> CardPlatformException.notFound(cardId));
+    }
+}

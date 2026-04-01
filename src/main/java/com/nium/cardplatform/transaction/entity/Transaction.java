@@ -61,12 +61,13 @@ public class Transaction {
      * Must be updated via {@link }
      */
 
-    public static Transaction declined(UUID cardId, TransactionType type, BigDecimal amount, String idempotencyKey) {
+    public static Transaction declined(UUID cardId, TransactionType type, BigDecimal amount, String reason, String idempotencyKey) {
         return Transaction.builder()
                 .cardId(cardId)
                 .type(type)
                 .amount(amount)
                 .status(TransactionStatus.DECLINED)
+                .declineReason(reason)
                 .idempotencyKey(idempotencyKey)
                 .build();
     }
