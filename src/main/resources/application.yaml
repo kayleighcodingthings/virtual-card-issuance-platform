@@ -78,3 +78,5 @@ app:
       audit-events: card-audit-events
   transaction:
     optimistic-lock-max-retries: 3
+  error:
+    base-uri: https://cardplatform.nium.com/errors/

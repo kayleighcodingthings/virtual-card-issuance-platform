@@ -1,0 +1,75 @@
+package com.nium.cardplatform.shared.exception;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.net.URI;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @Value("${app.error.base-uri}")
+    private String baseUri;
+
+    @ExceptionHandler(CardPlatformException.class)
+    public ProblemDetail handleCardPlatformException(CardPlatformException e) {
+        return problem(e.getStatus(), e.getErrorCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ProblemDetail handleMissingHeader(MissingRequestHeaderException e) {
+        if ("Idempotency-Key".equals(e.getHeaderName())) {
+            return problem(HttpStatus.BAD_REQUEST, "MISSING_IDEMPOTENCY_KEY",
+                    "Idempotency-Key header is required for this operation");
+        }
+        return problem(HttpStatus.BAD_REQUEST, "MISSING_HEADER",
+                "Required header missing: " + e.getHeaderName());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleValidation(MethodArgumentNotValidException e) {
+        Map<String, String> fieldErrors = e.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        FieldError::getField,
+                        fe -> fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "invalid",
+                        (a, b) -> a));
+
+        ProblemDetail pd = problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Request validation failed");
+        pd.setProperty("fieldErrors", fieldErrors);
+        return pd;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException e) {
+        return problem(HttpStatus.BAD_REQUEST, "BAD_REQUEST", e.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleGenericException(Exception ex) {
+        log.error("Unexpected exception: {}", ex.getMessage(), ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred");
+    }
+
+    private ProblemDetail problem(HttpStatus status, String errorCode, String message) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, message);
+        pd.setType(URI.create(baseUri + errorCode.toLowerCase()));
+        pd.setTitle(errorCode.replace('_', ' '));
+        pd.setProperty("errorCode", errorCode);
+        return pd;
+    }
+
+    private String toTitle(String errorCode) {
+        String s = errorCode.replace('_', ' ').toLowerCase();
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+}
