@@ -68,6 +68,7 @@ public class Card {
 
     /**
      * Debits the card balance.
+     *
      * @throws InsufficientFundsException if the resulting balance would be negative.
      */
     public void debit(BigDecimal amount) {

@@ -58,7 +58,8 @@ public class Transaction {
 
     /**
      * Creates the initial PENDING record written before any balance mutation.
-     * Must be updated via {@link }*/
+     * Must be updated via {@link }
+     */
 
     public static Transaction declined(UUID cardId, TransactionType type, BigDecimal amount, String idempotencyKey) {
         return Transaction.builder()
@@ -82,7 +83,9 @@ public class Transaction {
 
     // State transitions
 
-    /** Transitions a PENDING transaction to SUCCESSFUL after the balance commits. */
+    /**
+     * Transitions a PENDING transaction to SUCCESSFUL after the balance commits.
+     */
     public void acceptTransaction() {
         if (this.status != TransactionStatus.PENDING) {
             throw new IllegalStateException("Can only accept a PENDING transaction, current=" + status);
@@ -91,7 +94,9 @@ public class Transaction {
         this.status = TransactionStatus.SUCCESSFUL;
     }
 
-    /** Transitions a PENDING transaction to DECLINED with a reason code. */
+    /**
+     * Transitions a PENDING transaction to DECLINED with a reason code.
+     */
     public void declineTransaction(String reason) {
         if (this.status != TransactionStatus.PENDING) {
             throw new IllegalStateException("Can only decline a PENDING transaction, current=" + status);
