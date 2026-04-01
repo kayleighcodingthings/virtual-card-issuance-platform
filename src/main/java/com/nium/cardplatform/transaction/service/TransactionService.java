@@ -114,6 +114,11 @@ public class TransactionService {
         }
     }
 
+    /**
+     * Credit also uses the PENDING -> SUCCESSFUL lifecycle for consistency.
+     * Credits cannot produce an illegal balance state so no retry is needed, but we still want the observability
+     * of a PENDING state and the idempotency guarantee.
+     * */
     public Transaction credit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByItempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeCredit(cardId, amount, idempotencyKey));
