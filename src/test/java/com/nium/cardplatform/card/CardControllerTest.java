@@ -15,7 +15,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -28,6 +27,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Controller slice tests using @WebMvcTest.
+ * <p>Scope: input validation rules (@Valid, @NotBlank, @DecimalMin) and
+ * missing/malformed request headers. These are fast, isolated tests
+ * that run without a database or Kafka.
+ * <p>What these do NOT test: business logic, database behaviour, or
+ * idempotency — those are covered by CardApiIntegrationTest which
+ * runs the full stack against real PostgreSQL.
+ * <p>Why @Import(GlobalExceptionHandler.class)?
+ * {@link WebMvcTest} loads only the web layer. Without explicitly importing
+ * the exception handler, Spring uses its default error handling and
+ * our ProblemDetail responses won't be present in the test.
+ */
 @WebMvcTest(CardController.class)
 @Import(GlobalExceptionHandler.class)
 @DisplayName("CardController - input validation")
