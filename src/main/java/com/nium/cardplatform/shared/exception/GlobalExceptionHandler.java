@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
 import java.util.Map;
@@ -49,6 +50,17 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = String.format(
+                "Invalid value '%s' for parameter '%s' — expected %s",
+                ex.getValue(),
+                ex.getName(),
+                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "valid value"
+        );
+        return problem(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", detail);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e) {
         return problem(HttpStatus.BAD_REQUEST, "BAD_REQUEST", e.getMessage());
@@ -62,8 +74,8 @@ public class GlobalExceptionHandler {
 
     private ProblemDetail problem(HttpStatus status, String errorCode, String message) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, message);
-        pd.setType(URI.create(baseUri + errorCode.toLowerCase()));
-        pd.setTitle(errorCode.replace('_', ' '));
+        pd.setType(URI.create(baseUri + errorCode.toLowerCase().replace('_', '-')));
+        pd.setTitle(toTitle(errorCode));
         pd.setProperty("errorCode", errorCode);
         return pd;
     }

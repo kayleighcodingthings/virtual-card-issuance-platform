@@ -1,0 +1,217 @@
+package com.nium.cardplatform.card;
+
+import com.nium.cardplatform.card.api.CardController;
+import com.nium.cardplatform.card.entity.Card;
+import com.nium.cardplatform.card.entity.CardStatus;
+import com.nium.cardplatform.card.service.CardService;
+import com.nium.cardplatform.shared.exception.CardPlatformException;
+import com.nium.cardplatform.shared.exception.GlobalExceptionHandler;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(CardController.class)
+@Import(GlobalExceptionHandler.class)
+@DisplayName("CardController - input validation")
+class CardControllerTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @MockBean
+    CardService cardService;
+
+    // --- POST /api/v1/cards ---
+
+    @Nested
+    @DisplayName("POST /api/v1/cards")
+    class CreateCard {
+
+        @Test
+        @DisplayName("valid request returns 201 with card details")
+        void validRequest_returns201() throws Exception {
+            Card mockCard = mockCard(CardStatus.ACTIVE);
+            when(cardService.createCard(any(), any(), any())).thenReturn(mockCard);
+
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "cardholderName": "Alice Smith",
+                                      "initialBalance": 100.00
+                                    }
+                                    """))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.cardholderName").value("Alice Smith"))
+                    .andExpect(jsonPath("$.status").value("ACTIVE"));
+        }
+
+        @Test
+        @DisplayName("blank cardholderName returns 400 with validation error")
+        void blankName_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "cardholderName": "",
+                                      "initialBalance": 100.00
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.fieldErrors.cardholderName").exists());
+        }
+
+        @Test
+        @DisplayName("missing cardholderName returns 400 with validation error")
+        void missingName_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "initialBalance": 100.00
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+        }
+
+        @Test
+        @DisplayName("negative initialBalance returns 400 with validation error")
+        void negativeBalance_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "cardholderName": "Alice Smith",
+                                      "initialBalance": -50.00
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.fieldErrors.initialBalance").exists());
+        }
+
+        @Test
+        @DisplayName("missing initialBalance returns 400 with validation error")
+        void missingBalance_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "cardholderName": "Alice Smith"
+                                    }
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+        }
+
+        @Test
+        @DisplayName("empty body returns 400 with validation error")
+        void emptyBody_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+
+    // --- GET /api/v1/cards/{id} ---
+
+    @Nested
+    @DisplayName("GET /api/v1/cards/{id}")
+    class GetCard {
+
+        @Test
+        @DisplayName("400 when cardId is not a valid UUID")
+        void invalidUuid_returns400() throws Exception {
+            mockMvc.perform(get("/api/v1/cards/not-a-uuid"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("404 when cardId doesn't exist")
+        void nonexistentUuid_returns404() throws Exception {
+            UUID randomId = UUID.randomUUID();
+            when(cardService.getCard(randomId))
+                    .thenThrow(CardPlatformException.notFound(randomId));
+
+            mockMvc.perform(get("/api/v1/cards/{id}", randomId))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/cards/{id}/block and /unblock and /close")
+    class StatusTransitions {
+
+        // --- POST /api/v1/cards/{id}/block ---
+
+        @Test
+        @DisplayName("block - valid cardId returns 200 with updated card details")
+        void block_validId_returns200() throws Exception {
+            Card mockCard = mockCard(CardStatus.BLOCKED);
+            when(cardService.blockCard(any())).thenReturn(mockCard);
+
+            mockMvc.perform(post("/api/v1/cards/{id}/block", UUID.randomUUID()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("BLOCKED"));
+        }
+
+        // --- POST /api/v1/cards/{id}/unblock ---
+
+        @Test
+        @DisplayName("unblock - valid cardId returns 200 with updated card details")
+        void unblock_validId_returns200() throws Exception {
+            Card mockCard = mockCard(CardStatus.ACTIVE);
+            when(cardService.unblockCard(any())).thenReturn(mockCard);
+
+            mockMvc.perform(post("/api/v1/cards/{id}/unblock", UUID.randomUUID()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("ACTIVE"));
+        }
+
+        // --- POST /api/v1/cards/{id}/close ---
+
+        @Test
+        @DisplayName("close - valid cardId returns 200 with updated card details")
+        void close_validId_returns200() throws Exception {
+            Card mockCard = mockCard(CardStatus.CLOSED);
+            when(cardService.closeCard(any())).thenReturn(mockCard);
+
+            mockMvc.perform(post("/api/v1/cards/{id}/close", UUID.randomUUID()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("CLOSED"));
+        }
+    }
+
+    private Card mockCard(CardStatus status) {
+        return Card.builder()
+                .id(UUID.randomUUID())
+                .cardholderName("Alice Smith")
+                .balance(BigDecimal.valueOf(1000))
+                .status(status)
+                .expiresAt(LocalDateTime.now().plusYears(1))
+                .version(0L)
+                .build();
+    }
+}
