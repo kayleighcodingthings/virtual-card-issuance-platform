@@ -72,6 +72,7 @@ app:
     requests-per-minute: 100
   card:
     default-expiry: P2Y
+    expiry-job-interval: PT15M
   kafka:
     topics:
       audit-events: card-audit-events

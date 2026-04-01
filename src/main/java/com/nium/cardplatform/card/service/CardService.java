@@ -115,7 +115,13 @@ public class CardService {
         return saved;
     }
 
-    // TODO: Add Expiry for Quartz
+    @Transactional
+    public void expireCard(Card card) {
+        card.setStatus(CardStatus.EXPIRED);
+        cardRepository.save(card);
+        // TODO: Publish Event
+        log.info("Card [{}] expired.", card.getId());
+    }
 
     public Card findOrThrow(UUID cardId) {
         return cardRepository.findById(cardId).orElseThrow(() -> CardPlatformException.notFound(cardId));
