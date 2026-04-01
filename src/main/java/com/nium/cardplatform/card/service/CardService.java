@@ -39,7 +39,7 @@ public class CardService {
                 .cardholderName(cardholderName)
                 .balance(initialBalance != null ? initialBalance : BigDecimal.ZERO)
                 .status(CardStatus.ACTIVE)
-                .expiresAt(expiresAt)
+                .expiresAt(expiry)
                 .build();
 
         Card saved = cardRepository.save(card);

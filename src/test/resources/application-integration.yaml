@@ -1,0 +1,28 @@
+app:
+  rate-limit:
+    requests-per-minute: 100000   # effectively unlimited in tests
+  card:
+    default-expiry: P2Y
+    expiry-job-interval: PT15M
+  transaction:
+    optimistic-lock-max-retries: 3
+  kafka:
+    topics:
+      audit-events: card-audit-events-test
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+    producer:
+      properties:
+        spring.json.add.type.headers: false
+
+logging:
+  level:
+    com.nium.cardplatform: DEBUG
+    org.hibernate.SQL: DEBUG

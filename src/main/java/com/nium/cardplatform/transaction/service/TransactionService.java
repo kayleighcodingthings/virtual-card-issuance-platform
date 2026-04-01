@@ -30,9 +30,21 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final CardService cardService;
     private final ApplicationEventPublisher eventPublisher;
+    private final MeterRegistry meterRegistry;
 
     @Value("${app.transaction.optimistic-lock-max-retries:3}")
     private int maxRetries;
+
+    private Counter debitSuccessCounter;
+    private Counter debitDeclinedCounter;
+    private Counter creditSuccessCounter;
+
+    @PostConstruct
+    public void initMetrics() {
+        debitSuccessCounter = meterRegistry.counter("transactions.debit.success");
+        debitDeclinedCounter = meterRegistry.counter("transactions.debit.declined");
+        creditSuccessCounter = meterRegistry.counter("transactions.credit.success");
+    }
 
     /**
      * Processes a debit request with idempotency and optimistic-lock retry.
@@ -45,19 +57,19 @@ public class TransactionService {
      * when two concurrent transactions race on the same card. We retry up to maxRetries
      * times with a short back-off. After exhausting retries a DECLINED record is returned.
      */
-    public Transaction debit(UUID cardId, BigDecimal amount, String description, String idempotencyKey) {
+    public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByItempotencyKey(idempotencyKey)
-                .orElseGet(() -> executeDebitWithRetry(cardId, amount, description, idempotencyKey, 0));
+                .orElseGet(() -> executeDebitWithRetry(cardId, amount, idempotencyKey, 0));
     }
 
-    private Transaction executeDebitWithRetry(UUID cardId, BigDecimal amount, String description, String idempotencyKey, int attempt) {
+    private Transaction executeDebitWithRetry(UUID cardId, BigDecimal amount, String idempotencyKey, int attempt) {
         try {
             return processDebit(cardId, amount, idempotencyKey);
         } catch (ObjectOptimisticLockingFailureException e) {
             if (attempt < maxRetries) {
                 log.warn("Optimistic lock failure on debit, retrying... cardId={} amount={} attempt={}/{}", cardId, amount, attempt + 1, maxRetries);
                 sleepBackoff(attempt);
-                return executeDebitWithRetry(cardId, amount, description, idempotencyKey, attempt + 1);
+                return executeDebitWithRetry(cardId, amount, idempotencyKey, attempt + 1);
             }
             log.error("Max retries reached ({}) for debit transaction, failing: cardId={} amount={}", maxRetries, cardId, amount);
             // TODO: incremement declined metric
@@ -118,7 +130,8 @@ public class TransactionService {
      * Credit also uses the PENDING -> SUCCESSFUL lifecycle for consistency.
      * Credits cannot produce an illegal balance state so no retry is needed, but we still want the observability
      * of a PENDING state and the idempotency guarantee.
-     * */
+     *
+     */
     public Transaction credit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByItempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeCredit(cardId, amount, idempotencyKey));

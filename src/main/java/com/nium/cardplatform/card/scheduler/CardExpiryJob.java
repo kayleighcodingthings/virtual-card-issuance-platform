@@ -25,7 +25,7 @@ public class CardExpiryJob implements Job {
     private final CardService cardService;
 
     @Override
-    public void execute(JobExecutionContext context) throws JobExecutionException {
+    public void execute(JobExecutionContext context) {
         LocalDateTime now = LocalDateTime.now();
         List<Card> expiredCards = cardRepository.findExpiredActiveCards(now, CardStatus.ACTIVE);
 
