@@ -71,7 +71,7 @@ app:
   rate-limit:
     requests-per-minute: 100
   card:
-    default-expiry-years: 2
+    default-expiry: P2Y
   kafka:
     topics:
       audit-events: card-audit-events
