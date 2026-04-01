@@ -8,7 +8,7 @@ CREATE
 EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TYPE card_status AS ENUM ('ACTIVE', 'BLOCKED', 'CLOSED', 'EXPIRED');
-CREATE TYPE transaction_type AS ENUM ('SPEND', 'TOPUP');
+CREATE TYPE transaction_type AS ENUM ('DEBIT', 'CREDIT');
 CREATE TYPE transaction_status AS ENUM ('SUCCESSFUL', 'DECLINED', 'PENDING');
 
 CREATE TABLE card
