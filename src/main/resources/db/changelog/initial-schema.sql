@@ -15,7 +15,7 @@ CREATE TABLE card
 (
     id              UUID PRIMARY KEY        DEFAULT gen_random_uuid(),
     cardholder_name VARCHAR(255)   NOT NULL,
-    balance         DECIMAL(19, 2) NOT NULL DEFAULT 0.00,
+    balance         DECIMAL(19, 4) NOT NULL DEFAULT 0.00,
     status          card_status    NOT NULL,
     expires_at      TIMESTAMP      NOT NULL,
     created_at      TIMESTAMP      NOT NULL DEFAULT NOW(),
@@ -33,7 +33,7 @@ CREATE TABLE transaction
     id              UUID PRIMARY KEY            DEFAULT gen_random_uuid(),
     card_id         UUID               NOT NULL REFERENCES card (id),
     type            transaction_type   NOT NULL,
-    amount          DECIMAL(19, 2)     NOT NULL,
+    amount          DECIMAL(19, 4)     NOT NULL,
     status          transaction_status NOT NULL,
     decline_reason  VARCHAR(255),
     idempotency_key VARCHAR(255)       NOT NULL,
