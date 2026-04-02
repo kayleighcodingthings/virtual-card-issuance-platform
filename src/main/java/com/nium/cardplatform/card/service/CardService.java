@@ -4,6 +4,10 @@ import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.entity.CardStatus;
 import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
+import io.micrometer.core.annotation.Timed;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,10 +27,21 @@ public class CardService {
 
     private final CardRepository cardRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final MeterRegistry meterRegistry;
 
     @Value("${app.card.default-expiry:P2Y}")
     private Period defaultExpiry;
 
+    private Counter cardsCreatedCounter;
+    private Counter cardsExpiredCounter;
+
+    @PostConstruct
+    public void initMetrics() {
+        cardsCreatedCounter = meterRegistry.counter("cards.created");
+        cardsExpiredCounter = meterRegistry.counter("cards.expired");
+    }
+
+    @Timed(value = "card.create.time", description = "Time taken to create a card")
     @Transactional
     public Card createCard(String cardholderName, BigDecimal initialBalance, LocalDateTime expiresAt) {
         LocalDateTime expiry = expiresAt != null ? expiresAt : LocalDateTime.now().plus(defaultExpiry);
@@ -43,6 +58,7 @@ public class CardService {
                 .build();
 
         Card saved = cardRepository.save(card);
+        cardsCreatedCounter.increment();
         log.info("Card created: cardId={} cardholder={}", saved.getId(), saved.getCardholderName());
         // TODO: Publish Event
         return saved;
@@ -119,6 +135,7 @@ public class CardService {
     public void expireCard(Card card) {
         card.setStatus(CardStatus.EXPIRED);
         cardRepository.save(card);
+        cardsExpiredCounter.increment();
         // TODO: Publish Event
         log.info("Card [{}] expired.", card.getId());
     }

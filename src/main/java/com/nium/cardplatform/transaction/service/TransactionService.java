@@ -6,6 +6,7 @@ import com.nium.cardplatform.shared.exception.CardPlatformException;
 import com.nium.cardplatform.transaction.entity.Transaction;
 import com.nium.cardplatform.transaction.entity.TransactionType;
 import com.nium.cardplatform.transaction.repository.TransactionRepository;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
@@ -59,6 +60,7 @@ public class TransactionService {
      * when two concurrent transactions race on the same card. We retry up to maxRetries
      * times with a short back-off. After exhausting retries a DECLINED record is returned.
      */
+    @Timed(value = "transaction.debit.time", description = "Time taken to process a debit")
     public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByItempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeDebitWithRetry(cardId, amount, idempotencyKey, 0));
@@ -74,7 +76,7 @@ public class TransactionService {
                 return executeDebitWithRetry(cardId, amount, idempotencyKey, attempt + 1);
             }
             log.error("Max retries reached ({}) for debit transaction, failing: cardId={} amount={}", maxRetries, cardId, amount);
-            // TODO: incremement declined metric
+            debitDeclinedCounter.increment();
 
             return transactionRepository.save(Transaction.declined(cardId, TransactionType.DEBIT, amount,
                     "LOCK_CONTENTION_EXHAUSTED", idempotencyKey));
@@ -94,8 +96,7 @@ public class TransactionService {
             // Write a DECLINED record immediately, balance hasn't been touched.
             transactionRepository.save(Transaction.declined(cardId, TransactionType.DEBIT, amount,
                     "Card was expected to be ACTIVE but was found " + card.getStatus(), idempotencyKey));
-
-            // TODO: Increment declined metric
+            debitDeclinedCounter.increment();
             throw CardPlatformException.cardNotActive(cardId, card.getStatus().name());
         }
 
@@ -113,7 +114,7 @@ public class TransactionService {
             // Update status to SUCCESSFUL, balance mutation and status update commit atomically
             txn.acceptTransaction();
             transactionRepository.save(txn);
-            // TODO: increment success counter
+            debitSuccessCounter.increment();
             // TODO: publish event
 
             log.info("Debit successful: cardId={} amount={} txId={}", cardId, amount, txn.getId());
@@ -122,7 +123,7 @@ public class TransactionService {
             // Decline with reason
             txn.declineTransaction("INSUFFICIENT_FUNDS");
             transactionRepository.save(txn);
-            // TODO: increment decline metric
+            debitDeclinedCounter.increment();
             log.info("Debit declined (insufficient funds): cardId={} amount={} available={}", cardId, amount, e.getAvailable());
             throw CardPlatformException.insufficientFunds(cardId);
         }
@@ -157,7 +158,7 @@ public class TransactionService {
         card.credit(amount);
         txn.acceptTransaction();
         transactionRepository.save(txn);
-        // TODO: increment credit success counter
+        creditSuccessCounter.increment();
         // TODO: publish event
 
         log.info("Credit successful: cardId={} amount={} txId={}", cardId, amount, txn.getId());
