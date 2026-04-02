@@ -9,6 +9,7 @@ import com.nium.cardplatform.transaction.entity.TransactionStatus;
 import com.nium.cardplatform.transaction.entity.TransactionType;
 import com.nium.cardplatform.transaction.repository.TransactionRepository;
 import com.nium.cardplatform.transaction.service.TransactionService;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,6 +20,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -45,12 +47,16 @@ class TransactionServiceTest {
     @Mock
     ApplicationEventPublisher eventPublisher;
 
+    @Spy
+    SimpleMeterRegistry meterRegistry;
+
     @InjectMocks
     TransactionService sut;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(sut, "maxRetries", 3);
+        sut.initMetrics();
     }
 
     // Debit
