@@ -153,17 +153,17 @@ class TransactionServiceTest {
 
         /**
          * Covers the InsufficientFundsException guard in Card.debit().
-         * CSV: balance, spendAmount, shouldSucceed
+         * CSV: balance, debitAmount, shouldSucceed
          */
-        @ParameterizedTest(name = "balance={0} spend={1} shouldSucceed={2}")
+        @ParameterizedTest(name = "balance={0} debit={1} shouldSucceed={2}")
         @CsvSource({
                 "100.00, 100.00, true",   // exact balance — succeeds, final balance = 0
                 "100.00, 100.01, false",  // one cent over — declines
-                "0.00,   0.01,  false",   // zero balance — any spend declines
-                "50.00,  25.00, true",    // normal spend — succeeds
-                "0.01,   0.01,  true",    // minimum unit spend — succeeds
+                "0.00,   0.01,  false",   // zero balance — any debit declines
+                "50.00,  25.00, true",    // normal debit — succeeds
+                "0.01,   0.01,  true",    // minimum unit debit — succeeds
         })
-        @DisplayName("boundary spend: balance={0} amount={1} expected={2}")
+        @DisplayName("boundary debit: balance={0} amount={1} expected={2}")
         void balanceBoundary(BigDecimal balance, BigDecimal debitAmount, boolean shouldSucceed) {
             Card card = activeCard(balance);
             when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());

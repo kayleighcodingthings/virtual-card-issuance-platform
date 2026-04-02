@@ -2,6 +2,7 @@ package com.nium.cardplatform.transaction.service;
 
 import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.service.CardService;
+import com.nium.cardplatform.shared.events.CardAuditEvent;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
 import com.nium.cardplatform.transaction.entity.Transaction;
 import com.nium.cardplatform.transaction.entity.TransactionType;
@@ -115,7 +116,7 @@ public class TransactionService {
             txn.acceptTransaction();
             transactionRepository.save(txn);
             debitSuccessCounter.increment();
-            // TODO: publish event
+            eventPublisher.publishEvent(CardAuditEvent.onTransactionCompleted(cardId, txn.getId(), "DEBIT", amount));
 
             log.info("Debit successful: cardId={} amount={} txId={}", cardId, amount, txn.getId());
             return txn;
@@ -159,7 +160,7 @@ public class TransactionService {
         txn.acceptTransaction();
         transactionRepository.save(txn);
         creditSuccessCounter.increment();
-        // TODO: publish event
+        eventPublisher.publishEvent(CardAuditEvent.onTransactionCompleted(cardId, txn.getId(), "CREDIT", amount));
 
         log.info("Credit successful: cardId={} amount={} txId={}", cardId, amount, txn.getId());
         return txn;

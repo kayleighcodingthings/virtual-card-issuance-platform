@@ -4,6 +4,7 @@ import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.entity.CardStatus;
 import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.card.service.CardService;
+import com.nium.cardplatform.shared.events.CardAuditEvent;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +61,7 @@ class CardServiceTest {
             Card result = sut.createCard("Alice Smith", new BigDecimal("100.00"), null);
 
             assertThat(result.getStatus()).isEqualTo(CardStatus.ACTIVE);
+            verify(eventPublisher).publishEvent(any(CardAuditEvent.class));
         }
 
         @Test
@@ -96,6 +98,7 @@ class CardServiceTest {
             Card result = sut.blockCard(card.getId());
 
             assertThat(result.getStatus()).isEqualTo(CardStatus.BLOCKED);
+            verify(eventPublisher).publishEvent(any(CardAuditEvent.class));
         }
 
         @Test
@@ -136,6 +139,7 @@ class CardServiceTest {
             Card result = sut.closeCard(card.getId());
 
             assertThat(result.getStatus()).isEqualTo(CardStatus.CLOSED);
+            verify(eventPublisher).publishEvent(any(CardAuditEvent.class));
         }
 
         @Test

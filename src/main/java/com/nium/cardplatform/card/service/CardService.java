@@ -3,6 +3,7 @@ package com.nium.cardplatform.card.service;
 import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.entity.CardStatus;
 import com.nium.cardplatform.card.repository.CardRepository;
+import com.nium.cardplatform.shared.events.CardAuditEvent;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
@@ -60,7 +61,7 @@ public class CardService {
         Card saved = cardRepository.save(card);
         cardsCreatedCounter.increment();
         log.info("Card created: cardId={} cardholder={}", saved.getId(), saved.getCardholderName());
-        // TODO: Publish Event
+        eventPublisher.publishEvent(CardAuditEvent.onCreateCard(saved.getId(), saved.getCardholderName()));
         return saved;
     }
 
@@ -84,7 +85,7 @@ public class CardService {
         card.setStatus(CardStatus.BLOCKED);
         Card saved = cardRepository.save(card);
         log.info("Card [{}] blocked.", cardId);
-        //TODO PUBLISH EVENT
+        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardId, "ACTIVE", "BLOCKED"));
         return saved;
     }
 
@@ -107,7 +108,7 @@ public class CardService {
         card.setStatus(CardStatus.ACTIVE);
         Card saved = cardRepository.save(card);
         log.info("Card [{}] unblocked.", cardId);
-        //TODO PUBLISH EVENT
+        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardId, "BLOCKED", "ACTIVE"));
         return saved;
     }
 
@@ -127,7 +128,7 @@ public class CardService {
         card.setStatus(CardStatus.CLOSED);
         Card saved = cardRepository.save(card);
         log.info("Card [{}] closed.", cardId);
-        //TODO PUBLISH EVENT
+        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardId, "ACTIVE", "CLOSED"));
         return saved;
     }
 
@@ -136,7 +137,7 @@ public class CardService {
         card.setStatus(CardStatus.EXPIRED);
         cardRepository.save(card);
         cardsExpiredCounter.increment();
-        // TODO: Publish Event
+        eventPublisher.publishEvent(CardAuditEvent.onExpireCard(card.getId()));
         log.info("Card [{}] expired.", card.getId());
     }
 
