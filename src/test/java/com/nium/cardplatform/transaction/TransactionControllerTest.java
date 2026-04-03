@@ -54,7 +54,7 @@ class TransactionControllerTest {
     // --- POST /debit ---
 
     @Nested
-    @DisplayName("POST /api/v1/transactions/{id}/debit")
+    @DisplayName("POST /api/v1/cards/{id}/debit")
     class Debit {
 
         @Test
@@ -62,7 +62,7 @@ class TransactionControllerTest {
         void validRequest_returns201() throws Exception {
             when(transactionService.debit(any(), any(), any())).thenReturn(successfulDebit(CARD_ID, new BigDecimal("50.00")));
 
-            mockMvc.perform(post("/api/v1/transactions/{id}/debit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("""
@@ -78,7 +78,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when Idempotency-Key header is missing")
         void missingIdempotencyKey_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/debit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -92,7 +92,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when amount is zero")
         void zeroAmount_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/debit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("""
@@ -109,7 +109,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when amount is negative")
         void negativeAmount_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/debit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("""
@@ -126,7 +126,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when amount is missing")
         void missingAmount_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/debit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("{}"))
@@ -137,14 +137,14 @@ class TransactionControllerTest {
     // --- POST /credit ---
 
     @Nested
-    @DisplayName("POST /api/v1/transactions/{id}/credit")
+    @DisplayName("POST /api/v1/cards/{id}/credit")
     class Credit {
         @Test
         @DisplayName("201 when request is valid")
         void validRequest_returns201() throws Exception {
             when(transactionService.credit(any(), any(), any())).thenReturn(successfulCredit(CARD_ID, new BigDecimal("100.00")));
 
-            mockMvc.perform(post("/api/v1/transactions/{id}/credit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/credit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("""
@@ -160,7 +160,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when Idempotency-Key header is missing")
         void missingIdempotencyKey_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/credit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/credit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -173,7 +173,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when amount is zero")
         void zeroAmount_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/credit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/credit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("""
@@ -188,7 +188,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when amount is negative")
         void negativeAmount_returns400() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions/{id}/credit", CARD_ID)
+            mockMvc.perform(post("/api/v1/cards/{id}/credit", CARD_ID)
                             .contentType(MediaType.APPLICATION_JSON)
                             .header("Idempotency-Key", UUID.randomUUID().toString())
                             .content("""
@@ -204,7 +204,7 @@ class TransactionControllerTest {
     // ── GET /history ─────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("GET /api/v1/transactions/{id}/history")
+    @DisplayName("GET /api/v1/cards/{id}/history")
     class TransactionHistory {
 
         @Test
@@ -219,7 +219,7 @@ class TransactionControllerTest {
             when(transactionService.getTransactions(eq(CARD_ID), any(Pageable.class)))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/v1/transactions/{id}/history", CARD_ID)
+            mockMvc.perform(get("/api/v1/cards/{id}/history", CARD_ID)
                             .param("page", "0")
                             .param("size", "20"))
                     .andExpect(status().isOk())
@@ -233,7 +233,7 @@ class TransactionControllerTest {
         @Test
         @DisplayName("400 when cardId is not a valid UUID")
         void invalidUuid_returns400() throws Exception {
-            mockMvc.perform(get("/api/v1/transactions/not-a-uuid/history"))
+            mockMvc.perform(get("/api/v1/cards/not-a-uuid/history"))
                     .andExpect(status().isBadRequest());
         }
     }
