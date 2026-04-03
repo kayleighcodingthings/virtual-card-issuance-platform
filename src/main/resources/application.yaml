@@ -3,13 +3,13 @@ spring:
     name: card-platform
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/card-platform
-    username: root
-    password: root
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cardplatform}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
     hikari:
       maximumPoolSize: 20
       minimumIdle: 5
-      poolName: card-platform-pool
+      poolName: cardplatform-pool
 
   jpa:
     hibernate:
@@ -26,7 +26,7 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonDeserializer
@@ -47,6 +47,7 @@ spring:
     properties:
       org.quartz.jobStore.isClustered: false
       org.quartz.threadPool.threadCount: 2
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
 
 management:
   endpoints:
