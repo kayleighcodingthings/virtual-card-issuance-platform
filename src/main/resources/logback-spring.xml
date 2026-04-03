@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <springProfile name="!test">
+
+    <!-- Colour converter from Spring Boot -->
+    <conversionRule conversionWord="clr"
+                    converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+    <conversionRule conversionWord="wex"
+                    converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
+
+    <!-- Production — structured JSON with MDC fields -->
+    <springProfile name="!test,!local">
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
                 <includeMdcKeyName>requestId</includeMdcKeyName>
@@ -13,6 +21,20 @@
         </root>
     </springProfile>
 
+    <!-- Local dev — coloured console output -->
+    <springProfile name="local">
+        <appender name="CONSOLE_COLOUR" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} %clr(%-5level){DEBUG->blue, INFO->green, WARN->yellow, ERROR->red} [%15.15thread] %clr(%40.40logger{40}){cyan} [%X{requestId}] : %msg%n%wex</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_COLOUR"/>
+        </root>
+        <logger name="com.nium.cardplatform" level="DEBUG"/>
+    </springProfile>
+
+    <!-- Test — plain console, quiet by default -->
     <springProfile name="test">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
@@ -24,4 +46,5 @@
         </root>
         <logger name="com.nium.cardplatform" level="DEBUG"/>
     </springProfile>
+
 </configuration>
