@@ -15,7 +15,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     Page<Transaction> findByCardIdOrderByCreatedAtDesc(UUID cardId, Pageable pageable);
 
-    Optional<Transaction> findByItempotencyKey(String idempotencyKey);
+    Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
 
     long countByCardIdAndStatus(UUID cardId, TransactionStatus status);
 

@@ -1,9 +1,12 @@
 package com.nium.cardplatform.card.entity;
 
+import com.nium.cardplatform.transaction.service.TransactionService;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,6 +36,7 @@ public class Card {
     private BigDecimal balance;
 
     @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
     @Column(name = "status", nullable = false, columnDefinition = "card_status")
     private CardStatus status;
 
@@ -44,7 +48,7 @@ public class Card {
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     /**

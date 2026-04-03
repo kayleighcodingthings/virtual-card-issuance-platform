@@ -1,6 +1,7 @@
 package com.nium.cardplatform.transaction.service;
 
 import com.nium.cardplatform.card.entity.Card;
+import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.card.service.CardService;
 import com.nium.cardplatform.shared.events.CardAuditEvent;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
+    private final CardRepository cardRepository;
     private final CardService cardService;
     private final ApplicationEventPublisher eventPublisher;
     private final MeterRegistry meterRegistry;
@@ -63,7 +65,7 @@ public class TransactionService {
      */
     @Timed(value = "transaction.debit.time", description = "Time taken to process a debit")
     public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
-        return transactionRepository.findByItempotencyKey(idempotencyKey)
+        return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeDebitWithRetry(cardId, amount, idempotencyKey, 0));
     }
 
@@ -84,7 +86,7 @@ public class TransactionService {
         } catch (DataIntegrityViolationException e) {
             // Race on unique idempotency_key constraint - another thread committed already
             log.debug("Data integrity violation on debit, likely due to concurrent transaction with same idempotency key: cardId={} amount={} idempotencyKey={}", cardId, amount, idempotencyKey);
-            return transactionRepository.findByItempotencyKey(idempotencyKey)
+            return transactionRepository.findByIdempotencyKey(idempotencyKey)
                     .orElseThrow(() -> CardPlatformException.internalError("Idempotency race resolution failed"));
         }
     }
@@ -111,6 +113,7 @@ public class TransactionService {
         try {
             // Attempt debit, throws InsufficientFundsException if balance is insufficient
             card.debit(amount);
+            cardRepository.save(card);
 
             // Update status to SUCCESSFUL, balance mutation and status update commit atomically
             txn.acceptTransaction();
@@ -137,7 +140,7 @@ public class TransactionService {
      *
      */
     public Transaction credit(UUID cardId, BigDecimal amount, String idempotencyKey) {
-        return transactionRepository.findByItempotencyKey(idempotencyKey)
+        return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeCredit(cardId, amount, idempotencyKey));
     }
 
@@ -157,6 +160,8 @@ public class TransactionService {
 
         // Credit balance then update status
         card.credit(amount);
+        cardRepository.save(card);
+
         txn.acceptTransaction();
         transactionRepository.save(txn);
         creditSuccessCounter.increment();

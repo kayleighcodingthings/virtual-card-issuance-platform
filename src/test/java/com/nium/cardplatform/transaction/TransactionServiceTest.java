@@ -71,7 +71,7 @@ class TransactionServiceTest {
             Card card = activeCard(new BigDecimal("100.00"));
             Transaction existing = successfulDebit(card.getId(), new BigDecimal("10.00"));
 
-            when(transactionRepository.findByItempotencyKey("key-1"))
+            when(transactionRepository.findByIdempotencyKey("key-1"))
                     .thenReturn(Optional.of(existing));
 
             Transaction result = sut.debit(card.getId(), new BigDecimal("10.00"), "key-1");
@@ -84,7 +84,7 @@ class TransactionServiceTest {
         @DisplayName("processes pending transaction to successful")
         void pendingThenSuccessful() {
             Card card = activeCard(new BigDecimal("200.00"));
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             // First save it as PENDING, then save for update
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -101,7 +101,7 @@ class TransactionServiceTest {
         @DisplayName("processes pending transaction to declined when insufficient funds")
         void pendingThenDeclined() {
             Card card = activeCard(new BigDecimal("5.00"));
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -119,7 +119,7 @@ class TransactionServiceTest {
         @DisplayName("throws CardPlatformException when card is BLOCKED")
         void blockedCard() {
             Card card = cardWithStatus(CardStatus.BLOCKED);
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -131,7 +131,7 @@ class TransactionServiceTest {
         @DisplayName("throws CardPlatformException when card is CLOSED")
         void closedCard() {
             Card card = cardWithStatus(CardStatus.CLOSED);
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -143,7 +143,7 @@ class TransactionServiceTest {
         @DisplayName("throws CardPlatformException when card not found")
         void cardNotFound() {
             UUID missing = UUID.randomUUID();
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(missing)).thenThrow(CardPlatformException.notFound(missing));
 
             assertThatThrownBy(() -> sut.debit(missing, new BigDecimal("10.00"), "missing-key"))
@@ -172,7 +172,7 @@ class TransactionServiceTest {
         @DisplayName("boundary debit: balance={0} amount={1} expected={2}")
         void balanceBoundary(BigDecimal balance, BigDecimal debitAmount, boolean shouldSucceed) {
             Card card = activeCard(balance);
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -237,7 +237,7 @@ class TransactionServiceTest {
         void idempotencyReplay() {
             Card card = activeCard(BigDecimal.ZERO);
             Transaction existing = successfulCredit(card.getId(), new BigDecimal("50.00"));
-            when(transactionRepository.findByItempotencyKey("key-1")).thenReturn(Optional.of(existing));
+            when(transactionRepository.findByIdempotencyKey("key-1")).thenReturn(Optional.of(existing));
 
             Transaction result = sut.credit(card.getId(), new BigDecimal("50.00"), "key-1");
 
@@ -249,7 +249,7 @@ class TransactionServiceTest {
         @DisplayName("processes pending credit transaction to successful")
         void pendingThenSuccessful() {
             Card card = activeCard();
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -262,7 +262,7 @@ class TransactionServiceTest {
         @DisplayName("throws CardPlatformException on CLOSED card")
         void closedCard() {
             Card card = cardWithStatus(CardStatus.CLOSED);
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
 
             assertThatThrownBy(() -> sut.credit(card.getId(), new BigDecimal("25.00"), "closed-credit-key"))
@@ -273,7 +273,7 @@ class TransactionServiceTest {
         @DisplayName("throws CardPlatformException on BLOCKED card")
         void blockedCard() {
             Card card = cardWithStatus(CardStatus.BLOCKED);
-            when(transactionRepository.findByItempotencyKey(any())).thenReturn(Optional.empty());
+            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
 
             assertThatThrownBy(() -> sut.credit(card.getId(), new BigDecimal("25.00"), "closed-credit-key"))
