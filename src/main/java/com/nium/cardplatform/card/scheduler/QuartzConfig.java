@@ -29,7 +29,7 @@ public class QuartzConfig {
                 .forJob(cardExpiryJobDetail)
                 .withIdentity("cardExpiryTrigger", "card")
                 .withSchedule(SimpleScheduleBuilder.simpleSchedule()
-                        .withIntervalInMinutes(expiryJobInterval.toMinutesPart())
+                        .withIntervalInMinutes((int) expiryJobInterval.toMinutes())
                         .repeatForever()
                         .withMisfireHandlingInstructionNextWithExistingCount())
                 .build();

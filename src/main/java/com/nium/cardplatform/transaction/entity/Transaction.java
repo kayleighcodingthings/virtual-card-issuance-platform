@@ -62,7 +62,7 @@ public class Transaction {
 
     /**
      * Creates the initial PENDING record written before any balance mutation.
-     * Must be updated via {@link }
+     * Must be updated via {@link #acceptTransaction()} or {@link #declineTransaction(String)}
      */
 
     public static Transaction declined(UUID cardId, TransactionType type, BigDecimal amount, String reason, String idempotencyKey) {

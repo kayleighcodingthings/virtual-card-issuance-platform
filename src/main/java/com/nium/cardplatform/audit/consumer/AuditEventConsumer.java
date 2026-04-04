@@ -62,13 +62,17 @@ public class AuditEventConsumer {
         switch (message.getEventType()) {
             case "CARD_CREATED":
                 log.debug("Processing CARD_CREATED event for cardId={}", message.getCardId());
+                break;
             case "CARD_EXPIRED":
                 log.debug("Processing CARD_EXPIRED event for cardId={}", message.getCardId());
+                break;
             case "CARD_STATUS_CHANGED":
                 log.debug("Processing CARD_STATUS_CHANGED event for cardId={}", message.getCardId());
+                break;
             case "TRANSACTION_DEBIT", "TRANSACTION_CREDIT":
                 log.debug("Processing {} event for cardId={} amount={}",
                         message.getEventType(), message.getCardId(), message.getAmount());
+                break;
             default:
                 log.warn("Unknown audit event type: eventType={} cardId={}",
                         message.getEventType(), message.getCardId());

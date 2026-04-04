@@ -82,10 +82,11 @@ public class CardService {
             return card; // Idempotent
         }
 
+        String old = card.getStatus().name();
         card.setStatus(CardStatus.BLOCKED);
         Card saved = cardRepository.save(card);
         log.info("Card [{}] blocked.", cardId);
-        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardId, "ACTIVE", "BLOCKED"));
+        publishStatusChangeEvent(card, old);
         return saved;
     }
 
@@ -105,10 +106,11 @@ public class CardService {
             throw CardPlatformException.invalidTransition(card.getStatus().name(), "ACTIVE");
         }
 
+        String old = card.getStatus().name();
         card.setStatus(CardStatus.ACTIVE);
         Card saved = cardRepository.save(card);
         log.info("Card [{}] unblocked.", cardId);
-        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardId, "BLOCKED", "ACTIVE"));
+        publishStatusChangeEvent(card, old);
         return saved;
     }
 
@@ -128,7 +130,7 @@ public class CardService {
         card.setStatus(CardStatus.CLOSED);
         Card saved = cardRepository.save(card);
         log.info("Card [{}] closed.", cardId);
-        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardId, "ACTIVE", "CLOSED"));
+        publishStatusChangeEvent(card, old);
         return saved;
     }
 
@@ -139,6 +141,10 @@ public class CardService {
         cardsExpiredCounter.increment();
         eventPublisher.publishEvent(CardAuditEvent.onExpireCard(card.getId()));
         log.info("Card [{}] expired.", card.getId());
+    }
+
+    private void publishStatusChangeEvent(Card cardUpdated, String oldStatus) {
+        eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardUpdated.getId(), oldStatus, cardUpdated.getStatus().name()));
     }
 
     public Card findOrThrow(UUID cardId) {

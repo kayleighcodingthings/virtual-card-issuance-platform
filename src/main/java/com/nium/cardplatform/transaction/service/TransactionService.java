@@ -1,6 +1,5 @@
 package com.nium.cardplatform.transaction.service;
 
-import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.card.service.CardService;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
 import com.nium.cardplatform.transaction.entity.Transaction;
@@ -13,7 +12,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.dao.TransientDataAccessException;
@@ -46,7 +44,7 @@ public class TransactionService {
     @PostConstruct
     public void initMetrics() {
         debitDeclinedCounter = meterRegistry.counter("transactions.debit.declined");
-        debitDeclinedCounter = meterRegistry.counter("transactions.credit.declined");
+        creditDeclinedCounter = meterRegistry.counter("transactions.credit.declined");
     }
 
     /**
@@ -115,7 +113,7 @@ public class TransactionService {
                 return executeCreditWithRetry(cardId, amount, idempotencyKey, attempt + 1);
             }
             log.error("Max retries reached ({}) for CREDIT, declining: cardId={} amount={}", maxRetries, cardId, amount);
-            debitDeclinedCounter.increment();
+            creditDeclinedCounter.increment();
             return transactionRepository.save(Transaction.declined(cardId, TransactionType.CREDIT, amount,
                     "LOCK_CONTENTION_EXHAUSTED", idempotencyKey));
         } catch (DataIntegrityViolationException e) {
