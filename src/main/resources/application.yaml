@@ -42,15 +42,6 @@ spring:
       properties:
         spring.json.trusted.packages: "com.nium.cardplatform.audit.event"
 
-  quartz:
-    job-store-type: jdbc
-    jdbc:
-      initialize-schema: never # created through liquibase
-    properties:
-      org.quartz.jobStore.isClustered: false
-      org.quartz.threadPool.threadCount: 2
-      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
-
 management:
   endpoints:
     web:
@@ -83,3 +74,17 @@ app:
     optimistic-lock-max-retries: 3
   error:
     base-uri: https://cardplatform.nium.com/errors/
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.jobStore.isClustered: false
+      org.quartz.threadPool.threadCount: 2
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate

@@ -2,6 +2,7 @@ package com.nium.cardplatform.transaction;
 
 import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.entity.CardStatus;
+import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.card.service.CardService;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
 import com.nium.cardplatform.transaction.entity.Transaction;
@@ -43,6 +44,9 @@ class TransactionServiceTest {
 
     @Mock
     CardService cardService;
+
+    @Mock
+    CardRepository cardRepository;
 
     @Mock
     ApplicationEventPublisher eventPublisher;
@@ -88,6 +92,7 @@ class TransactionServiceTest {
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             // First save it as PENDING, then save for update
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             Transaction result = sut.debit(card.getId(), new BigDecimal("50.00"), "happy-key");
 
@@ -252,6 +257,7 @@ class TransactionServiceTest {
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
             when(cardService.findOrThrow(card.getId())).thenReturn(card);
             when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             Transaction result = sut.credit(card.getId(), new BigDecimal("25.00"), "credit-key");
             assertThat(result.getStatus()).isEqualTo(TransactionStatus.SUCCESSFUL);

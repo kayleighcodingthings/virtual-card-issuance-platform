@@ -1,6 +1,6 @@
 app:
   rate-limit:
-    requests-per-minute: 100000   # effectively unlimited in tests
+    requests-per-minute: 100000
   card:
     default-expiry: P2Y
     expiry-job-interval: PT15M
@@ -21,6 +21,10 @@ spring:
     producer:
       properties:
         spring.json.add.type.headers: false
+  quartz:
+    job-store-type: memory
+    properties:
+      org.quartz.jobStore.class: org.quartz.simpl.RAMJobStore
 
 logging:
   level:

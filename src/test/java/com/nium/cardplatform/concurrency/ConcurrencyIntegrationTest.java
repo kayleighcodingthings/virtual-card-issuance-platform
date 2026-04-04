@@ -3,6 +3,7 @@ package com.nium.cardplatform.concurrency;
 import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.entity.CardStatus;
 import com.nium.cardplatform.card.repository.CardRepository;
+import com.nium.cardplatform.integration.BaseIntegrationTest;
 import com.nium.cardplatform.transaction.entity.TransactionStatus;
 import com.nium.cardplatform.transaction.repository.TransactionRepository;
 import com.nium.cardplatform.transaction.service.TransactionService;
@@ -23,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Concurrency safety test")
-class ConcurrencyIntegrationTest {
+class ConcurrencyIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     TransactionService transactionService;

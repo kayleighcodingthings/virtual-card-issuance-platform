@@ -86,7 +86,7 @@ services:
       DB_USERNAME: root
       DB_PASSWORD: root
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SPRING_PROFILES_ACTIVE: default
+      SPRING_PROFILES_ACTIVE: local
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
       interval: 15s
