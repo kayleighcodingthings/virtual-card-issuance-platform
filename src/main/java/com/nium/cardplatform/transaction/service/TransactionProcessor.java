@@ -46,6 +46,27 @@ public class TransactionProcessor {
         creditDeclinedCounter = meterRegistry.counter("transactions.credit.declined");
     }
 
+    /**
+     * Executes a single debit attempt within a REPEATABLE_READ transaction.
+     * <p>This method is the transactional unit of work called by {@link TransactionService#debit} from outside the Spring proxy,
+     * ensuring the {@code @Transactional} boundary is honoured on every retry attempt.
+     * <p>Lifecycle within this transaction:
+     * <ol>
+     *   <li>Verify the card is ACTIVE — write DECLINED and throw if not.</li>
+     *   <li>Write a PENDING record for observability before any balance mutation.</li>
+     *   <li>Call {@link Card#debit} — throws {@link Card.InsufficientFundsException} if the balance would go negative.</li>
+     *   <li>On success: persist the updated card balance and mark the transaction SUCCESSFUL.</li>
+     *   <li>On insufficient funds: mark the transaction DECLINED and rethrow as {@link CardPlatformException}.</li>
+     * </ol>
+     * <p>REPEATABLE_READ ensures that concurrent transactions racing on the same card
+     * will trigger a version conflict (caught by the caller's retry loop) rather than
+     * silently producing a negative balance.
+     * @param cardId         the card to debit
+     * @param amount         the amount to deduct; must be positive
+     * @param idempotencyKey the idempotency key for the transaction record
+     * @return the resulting {@link Transaction}
+     * @throws CardPlatformException on card not found, card not active, or insufficient funds
+     */
     @Transactional(isolation = REPEATABLE_READ)
     public Transaction processDebit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         Card card = cardService.findOrThrow(cardId);
@@ -88,6 +109,26 @@ public class TransactionProcessor {
         }
     }
 
+    /**
+     * Executes a single credit attempt within a REPEATABLE_READ transaction.
+     * <p>Mirrors the structure of {@link #processDebit} but with no lower-bound balance constraint — a credit can never
+     * produce an illegal balance state. REPEATABLE_READ is still required to prevent lost-update anomalies under
+     * concurrent credits: without it, two threads could both read balance=100, both compute 100+10=110, and both commit,
+     * silently losing one credit.
+     * <p>Lifecycle within this transaction:
+     * <ol>
+     *   <li>Verify the card is ACTIVE — write DECLINED and throw if not.</li>
+     *   <li>Write a PENDING record before the balance mutation.</li>
+     *   <li>Apply the credit and save the updated card.</li>
+     *   <li>Mark the transaction SUCCESSFUL and publish an audit event.</li>
+     * </ol>
+     * @param cardId         the card to credit
+     * @param amount         the amount to add; must be positive
+     * @param idempotencyKey the idempotency key for the transaction record
+     * @return the resulting {@link Transaction}
+     * @throws com.nium.cardplatform.shared.exception.CardPlatformException on card not found
+     *         or card not active
+     */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public Transaction processCredit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         Card card = cardService.findOrThrow(cardId);

@@ -106,9 +106,9 @@ class ConcurrencyIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Concurrent credits should never cause lost updates — final balance should reflect all credits")
     void concurrentCredit_noLostUpdates() throws InterruptedException {
         Card card = persistCardToDB(BigDecimal.ZERO);
-        int threadCount = 20;
+        int threadCount = 50;
         BigDecimal creditAmount = new BigDecimal("10.00");
-        // 20 credits of 10.00 should result in final balance of 200.
+        // 50 credits of 10.00 should result in final balance of 500.
 
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);
         CountDownLatch ready = new CountDownLatch(threadCount);
@@ -139,8 +139,8 @@ class ConcurrencyIntegrationTest extends BaseIntegrationTest {
         Card result = cardRepository.findById(card.getId()).orElseThrow();
 
         assertThat(result.getBalance())
-                .as("Final balance should reflect all 20 credits of 10.00, resulting in 200.00")
-                .isEqualByComparingTo(new BigDecimal("200.00"));
+                .as("Final balance should reflect all 50 credits of 10.00, resulting in 500.00")
+                .isEqualByComparingTo(new BigDecimal("500.00"));
     }
 
     private Card persistCardToDB(BigDecimal balance) {

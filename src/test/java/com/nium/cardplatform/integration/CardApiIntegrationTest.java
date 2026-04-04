@@ -168,7 +168,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     // --- Transaction History ---
 
     @Test
-    @DisplayName("GET /transactions returns paginated transaction history")
+    @DisplayName("GET /history returns paginated transaction history")
     void transactionHistory() {
         UUID cardId = createCard("Iris West", "1000.00").getBody().id();
         debit(cardId, "100.00", UUID.randomUUID().toString());

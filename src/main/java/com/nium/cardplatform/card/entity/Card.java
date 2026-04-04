@@ -71,8 +71,9 @@ public class Card {
     }
 
     /**
-     * Debits the card balance.
-     *
+     * Debits the card balance
+     * @param amount the amount to remove from the balance; must be positive
+     * @throws IllegalArgumentException if {@code amount} is zero or negative
      * @throws InsufficientFundsException if the resulting balance would be negative.
      */
     public void debit(BigDecimal amount) {
@@ -86,6 +87,11 @@ public class Card {
         this.balance = this.balance.subtract(amount);
     }
 
+    /**
+     * Credits the card balance by the given amount.
+     * @param amount the amount to add to the balance; must be positive
+     * @throws IllegalArgumentException if {@code amount} is zero or negative
+     */
     public void credit(BigDecimal amount) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Credit amount must be positive.");

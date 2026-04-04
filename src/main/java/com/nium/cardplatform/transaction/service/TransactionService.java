@@ -48,20 +48,23 @@ public class TransactionService {
     }
 
     /**
-     * <p>Processes a debit request with idempotency and optimistic-lock retry.
-     * <p>Transaction lifecycle: PENDING -> SUCCESSFUL or DECLINED.
+     * Processes a debit request with idempotency and optimistic-lock retry.
+     * <p>Transaction lifecycle: PENDING → SUCCESSFUL or DECLINED.
      * A PENDING record is written before the balance mutation so there is always
      * an observable record even if the process crashes mid-operation.
      * <p>Idempotency: if a transaction with the same key already exists, the cached
      * result is returned without re-processing.
-     * <p>Retry strategy: two distinct transient failures can occur under concurrency:
-     * - {@link ObjectOptimisticLockingFailureException} — Hibernate detected a @Version
-     * mismatch (UPDATE affected 0 rows), meaning another transaction committed first.
-     * - {@link PessimisticLockingFailureException} — PostgreSQL itself aborted the transaction
-     * with SQLState 40001 ("could not serialize access due to concurrent update")
-     * at the REPEATABLE_READ level, before Hibernate could check the version.
-     * Despite the name, this is caused by snapshot isolation, not explicit locks.
-     * <p>Both are subclasses of {@link TransientDataAccessException} and are safe to retry.
+     * <p>Retry strategy:
+     * {@link ObjectOptimisticLockingFailureException} and
+     * {@link PessimisticLockingFailureException} (SQLState 40001).
+     * Both are subclasses of {@link TransientDataAccessException}
+     * and are retried up to {@code maxRetries} times with exponential back-off.
+     * Unlike debits, a credit exhausting all retries is declined with
+     * {@code LOCK_CONTENTION_EXHAUSTED} rather than silently losing the top-up.
+     * @param cardId         the card to credit
+     * @param amount         the amount to add; must be positive
+     * @param idempotencyKey caller-supplied key guaranteeing exactly-once processing
+     * @return the resulting {@link Transaction}
      */
     @Timed(value = "transaction.debit.time", description = "Time taken to process a debit")
     public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
@@ -96,7 +99,25 @@ public class TransactionService {
         }
     }
 
-
+    /**
+     * Processes a credit (top-up) request with idempotency and optimistic-lock retry.
+     * <p>Transaction lifecycle: PENDING → SUCCESSFUL or DECLINED.
+     * A PENDING record is written before the balance mutation so there is always
+     * an observable record even if the process crashes mid-operation.
+     * <p>Idempotency: if a transaction with the same key already exists, the cached
+     * result is returned without re-processing.
+     * <p>Retry strategy: the same transient failure types as debit can occur —
+     * {@link ObjectOptimisticLockingFailureException} and
+     * {@link PessimisticLockingFailureException} (SQLState 40001).
+     * Both are subclasses of {@link TransientDataAccessException}
+     * and are retried up to {@code maxRetries} times with exponential back-off.
+     * Unlike debits, a credit exhausting all retries is declined with
+     * {@code LOCK_CONTENTION_EXHAUSTED} rather than silently losing the top-up.
+     * @param cardId         the card to credit
+     * @param amount         the amount to add; must be positive
+     * @param idempotencyKey caller-supplied key guaranteeing exactly-once processing
+     * @return the resulting {@link Transaction}
+     */
     public Transaction credit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeCreditWithRetry(cardId, amount, idempotencyKey, 0));
@@ -123,6 +144,17 @@ public class TransactionService {
         }
     }
 
+    /**
+     * Returns a paginated, descending-chronological list of transactions for a card.
+     * <p>Verifies the card exists before querying — throws
+     * {@link CardPlatformException} (HTTP 404)
+     * if the card ID is unknown, preventing silent empty-page responses for bad IDs.
+     *
+     * @param cardId   the card whose transaction history to retrieve
+     * @param pageable pagination and sorting parameters
+     * @return a page of transactions ordered by {@code created_at DESC}
+     * @throws CardPlatformException if the card is not found
+     */
     @Transactional(readOnly = true)
     public Page<Transaction> getTransactions(UUID cardId, Pageable pageable) {
         cardService.findOrThrow(cardId);
@@ -131,7 +163,8 @@ public class TransactionService {
 
     private void sleepBackoff(int attempt) {
         try {
-            Thread.sleep(50L * (attempt + 1));
+            long jitter = (long) (Math.random() * 50);
+            Thread.sleep(50L * (attempt + 1) + jitter);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }

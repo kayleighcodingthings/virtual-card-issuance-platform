@@ -147,6 +147,15 @@ public class CardService {
         eventPublisher.publishEvent(CardAuditEvent.statusChanged(cardUpdated.getId(), oldStatus, cardUpdated.getStatus().name()));
     }
 
+    /**
+     * Retrieves a card by ID or throws a {@link CardPlatformException}
+     * with HTTP 404 if no card exists with that ID.
+     * <p>Intentionally package-accessible to allow use from {@code TransactionProcessor}
+     * without exposing a raw repository call across module boundaries.
+     * @param cardId the UUID of the card to look up
+     * @return the card entity
+     * @throws CardPlatformException if the card is not found
+     */
     public Card findOrThrow(UUID cardId) {
         return cardRepository.findById(cardId).orElseThrow(() -> CardPlatformException.notFound(cardId));
     }
