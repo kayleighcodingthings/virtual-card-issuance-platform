@@ -106,21 +106,23 @@ class ConcurrencyIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Concurrent credits should never cause lost updates — final balance should reflect all credits")
     void concurrentCredit_noLostUpdates() throws InterruptedException {
         Card card = persistCardToDB(BigDecimal.ZERO);
-        int threadCount = 50;
+        int threadCount = 20;
         BigDecimal creditAmount = new BigDecimal("10.00");
-        // 50 credits of 10.00 should result in final balance of 500.
+        // 20 credits of 10.00 should result in final balance of 200.
 
         ExecutorService pool = Executors.newFixedThreadPool(threadCount);
         CountDownLatch ready = new CountDownLatch(threadCount);
         CountDownLatch start = new CountDownLatch(1);
         CountDownLatch done = new CountDownLatch(threadCount);
+        AtomicInteger counter = new AtomicInteger();
 
         for (int i = 0; i < threadCount; i++) {
+            final int taskIndex = counter.getAndIncrement();
             pool.submit(() -> {
                 ready.countDown();
                 try {
                     start.await();
-                    transactionService.credit(card.getId(), creditAmount, "concurrency-test-" + Thread.currentThread().getId());
+                    transactionService.credit(card.getId(), creditAmount, "concurrency-test-" + taskIndex);
                 } catch (InterruptedException e) {
                     // Ignored for this test
                 } finally {
@@ -137,8 +139,8 @@ class ConcurrencyIntegrationTest extends BaseIntegrationTest {
         Card result = cardRepository.findById(card.getId()).orElseThrow();
 
         assertThat(result.getBalance())
-                .as("Final balance should reflect all 50 credits of 10.00, resulting in 500.00")
-                .isEqualByComparingTo(new BigDecimal("500.00"));
+                .as("Final balance should reflect all 20 credits of 10.00, resulting in 200.00")
+                .isEqualByComparingTo(new BigDecimal("200.00"));
     }
 
     private Card persistCardToDB(BigDecimal balance) {

@@ -2,13 +2,13 @@ package com.nium.cardplatform.transaction;
 
 import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.entity.CardStatus;
-import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.card.service.CardService;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
 import com.nium.cardplatform.transaction.entity.Transaction;
 import com.nium.cardplatform.transaction.entity.TransactionStatus;
 import com.nium.cardplatform.transaction.entity.TransactionType;
 import com.nium.cardplatform.transaction.repository.TransactionRepository;
+import com.nium.cardplatform.transaction.service.TransactionProcessor;
 import com.nium.cardplatform.transaction.service.TransactionService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,12 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -46,10 +46,7 @@ class TransactionServiceTest {
     CardService cardService;
 
     @Mock
-    CardRepository cardRepository;
-
-    @Mock
-    ApplicationEventPublisher eventPublisher;
+    TransactionProcessor transactionProcessor;
 
     @Spy
     SimpleMeterRegistry meterRegistry;
@@ -59,7 +56,7 @@ class TransactionServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(sut, "maxRetries", 3);
+        ReflectionTestUtils.setField(sut, "maxRetries", 10);
         sut.initMetrics();
     }
 
@@ -81,25 +78,23 @@ class TransactionServiceTest {
             Transaction result = sut.debit(card.getId(), new BigDecimal("10.00"), "key-1");
 
             assertThat(result).isSameAs(existing);
-            verify(cardService, never()).findOrThrow(any());
+            verify(transactionProcessor, never()).processDebit(any(), any(), any());
         }
 
         @Test
-        @DisplayName("processes pending transaction to successful")
+        @DisplayName("delegates to processor and returns SUCCESSFUL transaction")
         void pendingThenSuccessful() {
             Card card = activeCard(new BigDecimal("200.00"));
+            Transaction expected = successfulDebit(card.getId(), new BigDecimal("50.00"));
+
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
-            // First save it as PENDING, then save for update
-            when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(transactionProcessor.processDebit(card.getId(), new BigDecimal("50.00"), "happy-key"))
+                    .thenReturn(expected);
 
             Transaction result = sut.debit(card.getId(), new BigDecimal("50.00"), "happy-key");
 
             assertThat(result.getStatus()).isEqualTo(TransactionStatus.SUCCESSFUL);
-
-            //save called at least twice, 1 for pending 1 for update
-            verify(transactionRepository, atLeast(2)).save(any());
+            verify(transactionProcessor).processDebit(card.getId(), new BigDecimal("50.00"), "happy-key");
         }
 
         @Test
@@ -107,17 +102,11 @@ class TransactionServiceTest {
         void pendingThenDeclined() {
             Card card = activeCard(new BigDecimal("5.00"));
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
-            when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(transactionProcessor.processDebit(eq(card.getId()), any(), any()))
+                    .thenThrow(CardPlatformException.insufficientFunds(card.getId()));
 
             assertThatThrownBy(() -> sut.debit(card.getId(), new BigDecimal("10.00"), "decline-key"))
                     .isInstanceOf(CardPlatformException.class);
-
-            var captor = ArgumentCaptor.forClass(Transaction.class);
-            verify(transactionRepository, atLeast(2)).save(captor.capture());
-            Transaction last = captor.getAllValues().get(captor.getAllValues().size() - 1);
-            assertThat(last.getStatus()).isEqualTo(TransactionStatus.DECLINED);
-            assertThat(last.getDeclineReason()).isEqualTo("INSUFFICIENT_FUNDS");
         }
 
         @Test
@@ -125,8 +114,8 @@ class TransactionServiceTest {
         void blockedCard() {
             Card card = cardWithStatus(CardStatus.BLOCKED);
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
-            when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(transactionProcessor.processDebit(eq(card.getId()), any(), any()))
+                    .thenThrow(CardPlatformException.cardNotActive(card.getId(), CardStatus.BLOCKED.name()));
 
             assertThatThrownBy(() -> sut.debit(card.getId(), new BigDecimal("10.00"), "blocked-key"))
                     .isInstanceOf(CardPlatformException.class);
@@ -137,8 +126,8 @@ class TransactionServiceTest {
         void closedCard() {
             Card card = cardWithStatus(CardStatus.CLOSED);
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
-            when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(transactionProcessor.processDebit(eq(card.getId()), any(), any()))
+                    .thenThrow(CardPlatformException.cardNotActive(card.getId(), CardStatus.CLOSED.name()));
 
             assertThatThrownBy(() -> sut.debit(card.getId(), new BigDecimal("10.00"), "blocked-key"))
                     .isInstanceOf(CardPlatformException.class);
@@ -149,11 +138,65 @@ class TransactionServiceTest {
         void cardNotFound() {
             UUID missing = UUID.randomUUID();
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(missing)).thenThrow(CardPlatformException.notFound(missing));
+            when(transactionProcessor.processDebit(eq(missing), any(), any()))
+                    .thenThrow(CardPlatformException.notFound(missing));
 
             assertThatThrownBy(() -> sut.debit(missing, new BigDecimal("10.00"), "missing-key"))
                     .isInstanceOf(CardPlatformException.class);
         }
+    }
+
+    // --- Retry logic ---
+    @Test
+    @DisplayName("retries on TransientDataAccessException and succeeds")
+    void retriesOnTransientFailureThenSucceeds() {
+        Card card = activeCard(new BigDecimal("100.00"));
+        Transaction expected = successfulDebit(card.getId(), new BigDecimal("10.00"));
+
+        when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
+        when(transactionProcessor.processDebit(eq(card.getId()), any(), any()))
+                .thenThrow(new ObjectOptimisticLockingFailureException("version mismatch", null))
+                .thenReturn(expected); // succeeds on second attempt
+
+        Transaction result = sut.debit(card.getId(), new BigDecimal("10.00"), "retry-key");
+
+        assertThat(result.getStatus()).isEqualTo(TransactionStatus.SUCCESSFUL);
+        verify(transactionProcessor, times(2)).processDebit(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("declines with LOCK_CONTENTION_EXHAUSTED after exhausting all retries")
+    void exhaustsRetriesAndDeclines() {
+        Card card = activeCard(new BigDecimal("100.00"));
+
+        when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
+        when(transactionProcessor.processDebit(any(), any(), any()))
+                .thenThrow(new ObjectOptimisticLockingFailureException("version mismatch", null));
+        when(transactionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Transaction result = sut.debit(card.getId(), new BigDecimal("10.00"), "exhaust-key");
+
+        // maxRetries=10 means 11 total attempts (0,1,2,3,...,10), then falls through to declined save
+        verify(transactionProcessor, times(11)).processDebit(any(), any(), any());
+        assertThat(result.getStatus()).isEqualTo(TransactionStatus.DECLINED);
+        assertThat(result.getDeclineReason()).isEqualTo("LOCK_CONTENTION_EXHAUSTED");
+    }
+
+    @Test
+    @DisplayName("resolves DataIntegrityViolationException via idempotency key lookup")
+    void dataIntegrityViolationFallsBackToIdempotencyLookup() {
+        Card card = activeCard(new BigDecimal("100.00"));
+        Transaction raceWinner = successfulDebit(card.getId(), new BigDecimal("10.00"));
+
+        when(transactionRepository.findByIdempotencyKey(any()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(raceWinner));
+        when(transactionProcessor.processDebit(any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("duplicate idempotency_key"));
+
+        Transaction result = sut.debit(card.getId(), new BigDecimal("10.00"), "race-key");
+
+        assertThat(result).isSameAs(raceWinner);
     }
 
     // Parameterized Test for balance boundary cases
@@ -178,13 +221,16 @@ class TransactionServiceTest {
         void balanceBoundary(BigDecimal balance, BigDecimal debitAmount, boolean shouldSucceed) {
             Card card = activeCard(balance);
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
-            when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
             if (shouldSucceed) {
+                Transaction success = successfulDebit(card.getId(), debitAmount);
+                when(transactionProcessor.processDebit(eq(card.getId()), eq(debitAmount), any()))
+                        .thenReturn(success);
                 assertThatNoException().isThrownBy(() ->
                         sut.debit(card.getId(), debitAmount, UUID.randomUUID().toString()));
             } else {
+                when(transactionProcessor.processDebit(eq(card.getId()), eq(debitAmount), any()))
+                        .thenThrow(CardPlatformException.insufficientFunds(card.getId()));
                 assertThatThrownBy(() -> sut.debit(card.getId(), debitAmount, "boundary-key"))
                         .isInstanceOf(CardPlatformException.class);
             }
@@ -254,22 +300,22 @@ class TransactionServiceTest {
         @DisplayName("processes pending credit transaction to successful")
         void pendingThenSuccessful() {
             Card card = activeCard();
+            Transaction expected = successfulCredit(card.getId(), new BigDecimal("25.00"));
             when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
-            when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cardRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(transactionProcessor.processCredit(card.getId(), new BigDecimal("25.00"), "credit-key"))
+                    .thenReturn(expected);
 
             Transaction result = sut.credit(card.getId(), new BigDecimal("25.00"), "credit-key");
             assertThat(result.getStatus()).isEqualTo(TransactionStatus.SUCCESSFUL);
-            verify(transactionRepository, atLeast(2)).save(any());
+            verify(transactionProcessor).processCredit(card.getId(), new BigDecimal("25.00"), "credit-key");
         }
 
         @Test
         @DisplayName("throws CardPlatformException on CLOSED card")
         void closedCard() {
             Card card = cardWithStatus(CardStatus.CLOSED);
-            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
+            when(transactionProcessor.processCredit(eq(card.getId()), any(), any()))
+                    .thenThrow(CardPlatformException.cardNotActive(card.getId(), CardStatus.CLOSED.name()));
 
             assertThatThrownBy(() -> sut.credit(card.getId(), new BigDecimal("25.00"), "closed-credit-key"))
                     .isInstanceOf(CardPlatformException.class);
@@ -279,8 +325,8 @@ class TransactionServiceTest {
         @DisplayName("throws CardPlatformException on BLOCKED card")
         void blockedCard() {
             Card card = cardWithStatus(CardStatus.BLOCKED);
-            when(transactionRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
-            when(cardService.findOrThrow(card.getId())).thenReturn(card);
+            when(transactionProcessor.processCredit(eq(card.getId()), any(), any()))
+                    .thenThrow(CardPlatformException.cardNotActive(card.getId(), CardStatus.BLOCKED.name()));
 
             assertThatThrownBy(() -> sut.credit(card.getId(), new BigDecimal("25.00"), "closed-credit-key"))
                     .isInstanceOf(CardPlatformException.class);

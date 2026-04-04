@@ -11,6 +11,11 @@ app:
       audit-events: card-audit-events-test
 
 spring:
+  datasource:
+    hikari:
+      maximumPoolSize: 60
+      minimumIdle: 5
+      poolName: cardplatform-pool
   jpa:
     properties:
       hibernate:
