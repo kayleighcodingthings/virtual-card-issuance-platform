@@ -58,7 +58,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
                         "cardholderName", "",
                         "initialBalance", "100"
                 ), headers),
-                CardDtos.CardResponse.class
+                String.class
         );
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -83,7 +83,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Debit with insufficient funds returns 422")
     void debit_insufficientFunds_returns422() {
         UUID cardId = createCard("Charlie Brown", "50.00").getBody().id();
-        var response = debit(cardId, "100.00", UUID.randomUUID().toString());
+        var response = debitForError(cardId, "100.00", UUID.randomUUID().toString());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
@@ -92,8 +92,8 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Debit on blocked card returns 422")
     void debit_blockedCard_returns422() {
         UUID cardId = createCard("David Lee", "300.00").getBody().id();
-        restTemplate.postForEntity("/api/v1/cards/" + cardId + "/block", null, CardDtos.CardResponse.class);
-        var response = debit(cardId, "50.00", UUID.randomUUID().toString());
+        restTemplate.postForEntity("/api/v1/cards/" + cardId + "/block", null, Void.class);
+        var response = debitForError(cardId, "50.00", UUID.randomUUID().toString());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
@@ -101,7 +101,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("Debit on unknown card returns 404")
     void debit_unknownCard_returns404() {
-        var response = debit(UUID.randomUUID(), "50.00", UUID.randomUUID().toString());
+        var response = debitForError(UUID.randomUUID(), "50.00", UUID.randomUUID().toString());
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
@@ -115,7 +115,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
                 "/api/v1/cards/" + cardId + "/debit",
                 HttpMethod.POST,
                 new HttpEntity<>(Map.of("amount", "50.00"), headers),
-                TransactionDtos.TransactionResponse.class
+                String.class
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -140,8 +140,8 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Credit on closed card returns 422")
     void credit_closedCard_returns422() {
         UUID cardId = createCard("George Paul", "300.00").getBody().id();
-        restTemplate.postForEntity("/api/v1/cards/" + cardId + "/close", null, CardDtos.CardResponse.class);
-        var response = credit(cardId, "50.00", UUID.randomUUID().toString());
+        restTemplate.postForEntity("/api/v1/cards/" + cardId + "/close", null, Void.class);
+        var response = creditForError(cardId, "50.00", UUID.randomUUID().toString());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
     }
@@ -176,7 +176,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
         debit(cardId, "25.00", UUID.randomUUID().toString());
 
         var response = restTemplate.getForEntity(
-                "/api/v1/cards/" + cardId + "/transactions?page=0&size=10",
+                "/api/v1/cards/" + cardId + "/history?page=0&size=10",
                 TransactionDtos.PagedTransactionResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -224,4 +224,31 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
                 TransactionDtos.TransactionResponse.class
         );
     }
+
+    private ResponseEntity<String> debitForError(
+            UUID cardId, String amount, String idempotencyKey) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Idempotency-Key", idempotencyKey);
+        return restTemplate.exchange(
+                "/api/v1/cards/" + cardId + "/debit",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("amount", amount), headers),
+                String.class
+        );
+    }
+
+    private ResponseEntity<String> creditForError(
+            UUID cardId, String amount, String idempotencyKey) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Idempotency-Key", idempotencyKey);
+        return restTemplate.exchange(
+                "/api/v1/cards/" + cardId + "/credit",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("amount", amount), headers),
+                String.class
+        );
+    }
+
 }
