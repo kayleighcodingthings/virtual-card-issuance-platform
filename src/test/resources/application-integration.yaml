@@ -20,7 +20,7 @@ spring:
       auto-offset-reset: earliest
     producer:
       properties:
-        spring.json.add.type.headers: false
+        spring.json.add.type.headers: true
   quartz:
     job-store-type: memory
     properties:
