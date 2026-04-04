@@ -5,7 +5,7 @@ app:
     default-expiry: P2Y
     expiry-job-interval: PT15M
   transaction:
-    optimistic-lock-max-retries: 3
+    optimistic-lock-max-retries: 10
   kafka:
     topics:
       audit-events: card-audit-events-test

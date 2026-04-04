@@ -7,7 +7,6 @@ import com.nium.cardplatform.integration.BaseIntegrationTest;
 import com.nium.cardplatform.transaction.entity.TransactionStatus;
 import com.nium.cardplatform.transaction.repository.TransactionRepository;
 import com.nium.cardplatform.transaction.service.TransactionService;
-import org.checkerframework.checker.units.qual.C;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,15 +55,17 @@ class ConcurrencyIntegrationTest extends BaseIntegrationTest {
 
         AtomicInteger successCount = new AtomicInteger();
         AtomicInteger failedCount = new AtomicInteger();
+        AtomicInteger counter = new AtomicInteger();
 
         for (int i = 0; i < threadCount; i++) {
+            final int taskIndex = counter.getAndIncrement();
             pool.submit(() -> {
                 ready.countDown();
                 try {
                     start.await();
-                    transactionService.debit(card.getId(), debitAmount, "concurrency-test-" + Thread.currentThread().getId());
+                    transactionService.debit(card.getId(), debitAmount, "concurrency-test-" + taskIndex);
                     successCount.incrementAndGet();
-                } catch (InterruptedException e) {
+                } catch (Exception e) {
                     failedCount.incrementAndGet();
                 } finally {
                     done.countDown();

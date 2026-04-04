@@ -14,9 +14,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -27,9 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.springframework.transaction.annotation.Isolation.REPEATABLE_READ;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@EnableAspectJAutoProxy(exposeProxy = true)
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
@@ -53,15 +60,24 @@ public class TransactionService {
     }
 
     /**
-     * Processes a debit request with idempotency and optimistic-lock retry.
+     * <p>Processes a debit request with idempotency and optimistic-lock retry.
      * <p>Transaction lifecycle: PENDING -> SUCCESSFUL or DECLINED.
      * A PENDING record is written before the balance mutation so there is always
      * an observable record even if the process crashes mid-operation.
      * <p>Idempotency: if a transaction with the same key already exists, the cached
      * result is returned without re-processing.
-     * <p>Optimistic-lock retry: JPA @Version causes ObjectOptimisticLockingFailureException
-     * when two concurrent transactions race on the same card. We retry up to maxRetries
-     * times with a short back-off. After exhausting retries a DECLINED record is returned.
+     * <p>Retry strategy: two distinct transient failures can occur under concurrency:
+     * - {@link ObjectOptimisticLockingFailureException} — Hibernate detected a @Version
+     * mismatch (UPDATE affected 0 rows), meaning another transaction committed first.
+     * - {@link PessimisticLockingFailureException} — PostgreSQL itself aborted the transaction
+     * with SQLState 40001 ("could not serialize access due to concurrent update")
+     * at the REPEATABLE_READ level, before Hibernate could check the version.
+     * Despite the name, this is caused by snapshot isolation, not explicit locks.
+     * <p>Both are subclasses of {@link TransientDataAccessException} and are safe to retry.
+     * The retry loop lives outside the @{@link Transactional} boundary so each attempt starts
+     * a completely fresh transaction. AopContext.currentProxy() is used to call
+     * processDebit() through Spring's proxy so the @{@link Transactional} annotation is honoured —
+     * a direct this.processDebit() call would bypass the proxy and run without a transaction.
      */
     @Timed(value = "transaction.debit.time", description = "Time taken to process a debit")
     public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
@@ -71,28 +87,33 @@ public class TransactionService {
 
     private Transaction executeDebitWithRetry(UUID cardId, BigDecimal amount, String idempotencyKey, int attempt) {
         try {
-            return processDebit(cardId, amount, idempotencyKey);
-        } catch (ObjectOptimisticLockingFailureException e) {
+            return ((TransactionService) AopContext.currentProxy()).processDebit(cardId, amount, idempotencyKey);
+        } catch (TransientDataAccessException e) {
+            // Covers both ObjectOptimisticLockingFailureException (@Version mismatch detected
+            // by Hibernate) and PessimisticLockingFailureException (SQLState 40001 conflict
+            // detected by PostgreSQL at REPEATABLE_READ level). Both are transient and retryable.
             if (attempt < maxRetries) {
-                log.warn("Optimistic lock failure on debit, retrying... cardId={} amount={} attempt={}/{}", cardId, amount, attempt + 1, maxRetries);
+                log.warn("Transient failure on debit, retrying... cardId={} amount={} attempt={}/{} cause={}",
+                        cardId, amount, attempt + 1, maxRetries, e.getClass().getSimpleName());
                 sleepBackoff(attempt);
                 return executeDebitWithRetry(cardId, amount, idempotencyKey, attempt + 1);
             }
-            log.error("Max retries reached ({}) for debit transaction, failing: cardId={} amount={}", maxRetries, cardId, amount);
+            log.error("Max retries reached ({}) for debit, declining: cardId={} amount={}", maxRetries, cardId, amount);
             debitDeclinedCounter.increment();
-
             return transactionRepository.save(Transaction.declined(cardId, TransactionType.DEBIT, amount,
                     "LOCK_CONTENTION_EXHAUSTED", idempotencyKey));
         } catch (DataIntegrityViolationException e) {
-            // Race on unique idempotency_key constraint - another thread committed already
+            // Race on the unique idempotency_key constraint — another thread committed the
+            // same idempotency key between our initial check and our insert. Fetch and return
+            // the already-committed transaction instead of failing.
             log.debug("Data integrity violation on debit, likely due to concurrent transaction with same idempotency key: cardId={} amount={} idempotencyKey={}", cardId, amount, idempotencyKey);
             return transactionRepository.findByIdempotencyKey(idempotencyKey)
                     .orElseThrow(() -> CardPlatformException.internalError("Idempotency race resolution failed"));
         }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
-    protected Transaction processDebit(UUID cardId, BigDecimal amount, String idempotencyKey) {
+    @Transactional(isolation = REPEATABLE_READ)
+    public Transaction processDebit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         Card card = cardService.findOrThrow(cardId);
 
         if (!card.isActive()) {
