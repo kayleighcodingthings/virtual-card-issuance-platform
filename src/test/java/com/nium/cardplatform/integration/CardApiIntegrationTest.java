@@ -92,7 +92,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Debit on blocked card returns 422")
     void debit_blockedCard_returns422() {
         UUID cardId = createCard("David Lee", "300.00").getBody().id();
-        restTemplate.postForEntity("/api/v1/cards/" + cardId + "/block", null, Void.class);
+        patchCardStatus(cardId, "BLOCKED");
         var response = debitForError(cardId, "50.00", UUID.randomUUID().toString());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -140,7 +140,7 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Credit on closed card returns 422")
     void credit_closedCard_returns422() {
         UUID cardId = createCard("George Paul", "300.00").getBody().id();
-        restTemplate.postForEntity("/api/v1/cards/" + cardId + "/close", null, Void.class);
+        deleteCard(cardId);
         var response = creditForError(cardId, "50.00", UUID.randomUUID().toString());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -248,6 +248,26 @@ class CardApiIntegrationTest extends BaseIntegrationTest {
                 HttpMethod.POST,
                 new HttpEntity<>(Map.of("amount", amount), headers),
                 String.class
+        );
+    }
+
+    private void patchCardStatus(UUID cardId, String status) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        restTemplate.exchange(
+                "/api/v1/cards/" + cardId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("status", status), headers),
+                CardDtos.CardResponse.class
+        );
+    }
+
+    private void deleteCard(UUID cardId) {
+        restTemplate.exchange(
+                "/api/v1/cards/" + cardId,
+                HttpMethod.DELETE,
+                null,
+                CardDtos.CardResponse.class
         );
     }
 

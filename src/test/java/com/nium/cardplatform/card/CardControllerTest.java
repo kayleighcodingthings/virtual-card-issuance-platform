@@ -22,8 +22,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -176,41 +175,78 @@ class CardControllerTest {
     @DisplayName("POST /api/v1/cards/{id}/block and /unblock and /close")
     class StatusTransitions {
 
-        // --- POST /api/v1/cards/{id}/block ---
+        // --- PATCH /api/v1/cards/{id} with status = BLOCKED ---
 
         @Test
-        @DisplayName("block - valid cardId returns 200 with updated card details")
+        @DisplayName("block - valid cardId returns 200 with updated card status")
         void block_validId_returns200() throws Exception {
             Card mockCard = mockCard(CardStatus.BLOCKED);
             when(cardService.blockCard(any())).thenReturn(mockCard);
 
-            mockMvc.perform(post("/api/v1/cards/{id}/block", UUID.randomUUID()))
+            mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"status": "BLOCKED"}
+                                    """))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("BLOCKED"));
         }
 
-        // --- POST /api/v1/cards/{id}/unblock ---
+        // --- PATCH /api/v1/cards/{id} with status = ACTIVE ---
 
         @Test
-        @DisplayName("unblock - valid cardId returns 200 with updated card details")
+        @DisplayName("unblock - valid cardId returns 200 with updated card status")
         void unblock_validId_returns200() throws Exception {
             Card mockCard = mockCard(CardStatus.ACTIVE);
             when(cardService.unblockCard(any())).thenReturn(mockCard);
 
-            mockMvc.perform(post("/api/v1/cards/{id}/unblock", UUID.randomUUID()))
+            mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"status": "ACTIVE"}
+                                    """))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("ACTIVE"));
         }
 
-        // --- POST /api/v1/cards/{id}/close ---
+        // --- PATCH /api/v1/cards/{id} with invalid status ---
 
         @Test
-        @DisplayName("close - valid cardId returns 200 with updated card details")
-        void close_validId_returns200() throws Exception {
+        @DisplayName("PATCH with invalid status returns 422")
+        void invalidStatus_returns422() throws Exception {
+            mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"status": "CLOSED"}
+                                    """))
+                    .andExpect(status().isUnprocessableEntity());
+        }
+
+        // --- PATCH /api/v1/cards/{id} with missing status ---
+
+        @Test
+        @DisplayName("PATCH with missing status returns 400")
+        void missingStatus_returns400() throws Exception {
+            mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/v1/cards/{id} — close card")
+    class CloseCard {
+
+        // --- DELETE /api/v1/cards/{id} ---
+
+        @Test
+        @DisplayName("DELETE returns 200 with CLOSED card")
+        void close_returns200() throws Exception {
             Card mockCard = mockCard(CardStatus.CLOSED);
             when(cardService.closeCard(any())).thenReturn(mockCard);
 
-            mockMvc.perform(post("/api/v1/cards/{id}/close", UUID.randomUUID()))
+            mockMvc.perform(delete("/api/v1/cards/{id}", UUID.randomUUID()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("CLOSED"));
         }

@@ -3,6 +3,7 @@ package com.nium.cardplatform.card.api;
 import com.nium.cardplatform.card.api.dto.CardDtos;
 import com.nium.cardplatform.card.entity.Card;
 import com.nium.cardplatform.card.service.CardService;
+import com.nium.cardplatform.shared.exception.CardPlatformException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
@@ -31,19 +32,44 @@ public class CardController {
         return ResponseEntity.ok(toResponse(cardService.getCard(cardId)));
     }
 
-    @PostMapping("/{cardId}/block")
-    public ResponseEntity<CardDtos.CardResponse> blockCard(@PathVariable UUID cardId) {
+    /**
+     * Partial update of a card resource. Currently supports status transitions:
+     * <ul>
+     *   <li>{@code {"status": "BLOCKED"}} — blocks an ACTIVE card</li>
+     *   <li>{@code {"status": "ACTIVE"}} — unblocks a BLOCKED card</li>
+     * </ul>
+     * Idempotent: patching to the current status returns 200 with no state change.
+     *
+     * @param cardId  the card to update
+     * @param request the fields to patch
+     * @return the updated card
+     */
+    @PatchMapping("/{cardId}")
+    public ResponseEntity<CardDtos.CardResponse> updateCard(
+            @PathVariable UUID cardId,
+            @Valid @RequestBody CardDtos.PatchCardRequest request) {
         MDC.put("cardId", cardId.toString());
-        return ResponseEntity.ok(toResponse(cardService.blockCard(cardId)));
+
+        Card result = switch (request.status()) {
+            case BLOCKED -> cardService.blockCard(cardId);
+            case ACTIVE -> cardService.unblockCard(cardId);
+            default -> throw CardPlatformException.invalidTransition(
+                    "current", request.status().name());
+        };
+
+        return ResponseEntity.ok(toResponse(result));
     }
 
-    @PostMapping("/{cardId}/unblock")
-    public ResponseEntity<CardDtos.CardResponse> unblockCard(@PathVariable UUID cardId) {
-        MDC.put("cardId", cardId.toString());
-        return ResponseEntity.ok(toResponse(cardService.unblockCard(cardId)));
-    }
-
-    @PostMapping("/{cardId}/close")
+    /**
+     * Closes (terminates) a card. Modelled as DELETE because the card is being
+     * permanently retired — no further transactions or status transitions are
+     * permitted after closure.
+     * <p>Idempotent: deleting an already-closed card returns 200.
+     *
+     * @param cardId the card to close
+     * @return the closed card
+     */
+    @DeleteMapping("/{cardId}")
     public ResponseEntity<CardDtos.CardResponse> closeCard(@PathVariable UUID cardId) {
         MDC.put("cardId", cardId.toString());
         return ResponseEntity.ok(toResponse(cardService.closeCard(cardId)));

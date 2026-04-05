@@ -1,6 +1,10 @@
 package com.nium.cardplatform.integration;
 
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -16,6 +20,19 @@ import org.testcontainers.utility.DockerImageName;
 @ActiveProfiles("integration")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class BaseIntegrationTest {
+
+    /**
+     * Spring Boot auto-configures {@link TestRestTemplate} with the correct
+     * {@code localhost:RANDOM_PORT} base URL. We swap its underlying request factory
+     * to Apache HttpClient5 which supports the HTTP PATCH method — the default
+     * JDK {@code HttpURLConnection} rejects PATCH with "Invalid HTTP method".
+     */
+    @Autowired
+    void configureHttpClient(TestRestTemplate restTemplate) {
+        restTemplate.getRestTemplate().setRequestFactory(
+                new HttpComponentsClientHttpRequestFactory(HttpClients.createDefault())
+        );
+    }
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES =

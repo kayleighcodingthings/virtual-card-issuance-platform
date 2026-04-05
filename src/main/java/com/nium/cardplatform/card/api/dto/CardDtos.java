@@ -1,6 +1,7 @@
 package com.nium.cardplatform.card.api.dto;
 
 
+import com.nium.cardplatform.card.entity.CardStatus;
 import jakarta.validation.constraints.*;
 import lombok.Builder;
 
@@ -27,6 +28,13 @@ public final class CardDtos {
             BigDecimal initialBalance,
 
             LocalDateTime expiresAt // nullable -> defaults to now()+2years
+    ) {
+    }
+
+    @Builder
+    public record PatchCardRequest(
+            @NotNull(message = "status is required")
+            CardStatus status
     ) {
     }
 
