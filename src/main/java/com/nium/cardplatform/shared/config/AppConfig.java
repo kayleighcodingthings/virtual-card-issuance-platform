@@ -56,7 +56,7 @@ class AppConfig {
         return new TimedAspect(registry);
     }
 
-    // ── Async executor for audit event publishing ─────────────────────────────
+    // --- Async executor for audit event publishing ---
 
     /**
      * Dedicated thread pool for {@code @Async} audit event publishing in
@@ -80,7 +80,7 @@ class AppConfig {
         return exec;
     }
 
-    // ── Kafka topics (auto-created on startup if broker allows) ───────────────
+    // --- Kafka topics (auto-created on startup if broker allows) ---
 
     /**
      * Declares the primary audit events topic.

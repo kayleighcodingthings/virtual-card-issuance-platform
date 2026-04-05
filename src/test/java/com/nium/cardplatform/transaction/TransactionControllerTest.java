@@ -201,7 +201,7 @@ class TransactionControllerTest {
 
     }
 
-    // ── GET /history ─────────────────────────────────────────────────────
+    // --- GET /history ---
 
     @Nested
     @DisplayName("GET /api/v1/cards/{id}/history")
