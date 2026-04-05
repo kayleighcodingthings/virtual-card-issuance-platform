@@ -1,6 +1,6 @@
 # Virtual Card Issuance Platform
 
-[![CI](https://github.com/kayleighcodingthings/virtual-card-issuance-platform/actions/workflows/build.yaml/badge.svg)](https://github.com/kayleighcodingthings/virtual-card-issuance-platform/actions/workflows/build.yaml)
+[![Build](https://github.com/kayleighcodingthings/virtual-card-issuance-platform/actions/workflows/build.yaml/badge.svg)](https://github.com/kayleighcodingthings/virtual-card-issuance-platform/actions/workflows/build.yaml)
 
 A production-grade virtual card platform built with **Java 21**, **Spring Boot 3.3**, and **Spring Modulith**. Designed
 for correctness under concurrent load, with explicit attention to the failure modes common in financial systems.
