@@ -284,6 +284,24 @@ context for operational investigation and replay.
 
 This pattern avoids the poison-pill problem where a single malformed message blocks consumer progress indefinitely.
 
+### Kafka Topic Configuration
+
+Topic partitions and replica factors are configurable via `application.yaml` under `app.kafka`:
+
+```yaml
+app:
+  kafka:
+    audit-topic-partitions: 12   # local default
+    audit-topic-replicas: 1      # single-broker dev
+    dlt-partitions: 1
+    dlt-replicas: 1
+```
+
+**Production overrides:** set `audit-topic-partitions: 24` for higher consumer parallelism and `audit-topic-replicas: 3`
+with `min.insync.replicas=2` for fault tolerance. Without sufficient replicas, a single broker going down for
+maintenance or upgrade will cause audit event loss — partitions with no available replica become unavailable until the
+broker returns.
+
 ### AOP Logging Aspect
 
 `ServiceLoggingAspect` applies an `@Around` advice to every public method in every `@Service` bean across all modules.
@@ -360,14 +378,15 @@ Any method exceeding 500ms is logged at WARN to surface slow operations without 
 
 ## Trade-offs Made Under Time Constraints
 
-| Trade-off                    | What was done                                                                                  | Production alternative                                                               |
-|------------------------------|------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| In-memory rate limit buckets | `ConcurrentHashMap<IP, Bucket>` per node - resets on restart, not shared across instances      | Redis-backed Bucket4j `ProxyManager` for distributed, persistent limits              |
-| No idempotency key expiry    | Keys live forever in the `transaction` table                                                   | Separate `idempotency_record` table with TTL and a cleanup job                       |
-| Linear retry backoff         | `50ms × attempt + random jitter(0–50ms)` - adequate for low concurrency                        | Full exponential backoff with wider jitter window for high-cardinality retry storms  |
-| No OpenAPI spec              | Manual curl examples in README                                                                 | Springdoc OpenAPI (`/swagger-ui.html`) auto-generated from controllers               |
-| Audit is fire-and-forget     | `@Async` Kafka publish after commit - no delivery guarantee if the process crashes post-commit | Transactional outbox pattern with Debezium CDC for guaranteed at-least-once delivery |
-| Single-node Quartz scheduler | `isClustered=false` - two instances would double-fire the expiry job                           | Quartz JDBC clustering with `isClustered=true` and a shared job store                |
+| Trade-off                    | What was done                                                                                  | Production alternative                                                                                                                                    |
+|------------------------------|------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| In-memory rate limit buckets | `ConcurrentHashMap<IP, Bucket>` per node - resets on restart, not shared across instances      | Redis-backed Bucket4j `ProxyManager` for distributed, persistent limits                                                                                   |
+| No idempotency key expiry    | Keys live forever in the `transaction` table                                                   | Separate `idempotency_record` table with TTL and a cleanup job                                                                                            |
+| Linear retry backoff         | `50ms × attempt + random jitter(0–50ms)` - adequate for low concurrency                        | Full exponential backoff with wider jitter window for high-cardinality retry storms                                                                       |
+| No OpenAPI spec              | Manual curl examples in README                                                                 | Springdoc OpenAPI (`/swagger-ui.html`) auto-generated from controllers                                                                                    |
+| Audit is fire-and-forget     | `@Async` Kafka publish after commit - no delivery guarantee if the process crashes post-commit | Transactional outbox pattern with Debezium CDC for guaranteed at-least-once delivery                                                                      |
+| Single-node Quartz scheduler | `isClustered=false` - two instances would double-fire the expiry job                           | Quartz JDBC clustering with `isClustered=true` and a shared job store                                                                                     |
+| Zookeeper-based Kafka        | `docker-compose` uses `cp-kafka:7.6.0` with Zookeeper for broker coordination                  | KRaft mode (Kafka Raft) — Zookeeper was deprecated in Kafka 3.5 and removed in 4.0. No application code changes required, only a docker-compose migration |
 
 ### Test Coverage Note
 

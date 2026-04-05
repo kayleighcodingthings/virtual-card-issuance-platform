@@ -1,10 +1,10 @@
 package com.nium.cardplatform.audit.publisher;
 
 import com.nium.cardplatform.audit.event.AuditMessage;
+import com.nium.cardplatform.shared.config.AuditKafkaProperties;
 import com.nium.cardplatform.shared.events.CardAuditEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -25,8 +25,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class AuditKafkaPublisher {
     private final KafkaTemplate<String, AuditMessage> kafkaTemplate;
 
-    @Value("${app.kafka.topics.audit-events:card-audit-events}")
-    private String auditTopic;
+    private final AuditKafkaProperties auditKafkaProperties;
 
     /**
      * Receives a {@link CardAuditEvent} after the business transaction commits
@@ -49,7 +48,7 @@ public class AuditKafkaPublisher {
                 .build();
 
         try {
-            kafkaTemplate.send(auditTopic, event.getCardId().toString(), message)
+            kafkaTemplate.send(auditKafkaProperties.getTopics().getAuditEvents(), event.getCardId().toString(), message)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
                             log.error("Failed to publish audit event: eventType={} cardId={} error={}",

@@ -70,6 +70,10 @@ app:
   kafka:
     topics:
       audit-events: card-audit-events
+    audit-topic-partitions: 12
+    audit-topic-replicas: 1
+    dlt-partitions: 1
+    dlt-replicas: 1
   transaction:
     optimistic-lock-max-retries: 3
   error:

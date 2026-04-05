@@ -8,8 +8,9 @@ import com.nium.cardplatform.audit.publisher.AuditKafkaPublisher;
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.aop.TimedAspect;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.NewTopic;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -24,7 +25,11 @@ import java.util.concurrent.Executor;
  */
 @Configuration
 @EnableAsync
+@EnableConfigurationProperties(AuditKafkaProperties.class)
+@RequiredArgsConstructor
 class AppConfig {
+
+    private final AuditKafkaProperties auditKafkaProperties;
 
     // --- Jackson ---
 
@@ -91,11 +96,10 @@ class AppConfig {
      * settings, no action is taken.
      */
     @Bean
-    public NewTopic auditEventsTopic(
-            @Value("${app.kafka.topics.audit-events:card-audit-events}") String topicName) {
-        return TopicBuilder.name(topicName)
-                .partitions(3)
-                .replicas(1)
+    public NewTopic auditEventsTopic() {
+        return TopicBuilder.name(auditKafkaProperties.getTopics().getAuditEvents())
+                .partitions(auditKafkaProperties.getAuditTopicPartitions())
+                .replicas(auditKafkaProperties.getAuditTopicReplicas())
                 .build();
     }
 
@@ -107,11 +111,10 @@ class AppConfig {
      * @see AuditEventConsumer#handleDlt
      */
     @Bean
-    public NewTopic auditEventsDltTopic(
-            @Value("${app.kafka.topics.audit-events:card-audit-events}") String topicName) {
-        return TopicBuilder.name(topicName + ".DLT")
-                .partitions(1)
-                .replicas(1)
+    public NewTopic auditEventsDltTopic() {
+        return TopicBuilder.name(auditKafkaProperties.getTopics().getAuditEvents() + ".DLT")
+                .partitions(auditKafkaProperties.getDltPartitions())
+                .replicas(auditKafkaProperties.getDltReplicas())
                 .build();
     }
 }
