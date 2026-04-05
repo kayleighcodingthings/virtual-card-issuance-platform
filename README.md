@@ -49,10 +49,10 @@ docker compose down -v
 docker compose up postgres zookeeper kafka -d
 
 # 2. Run the application
-./mvnw spring-boot:run
+mvn spring-boot:run
 
 # Or build and run the jar
-./mvnw package -DskipTests
+mvn package -DskipTests
 java -jar target/card-platform-*.jar
 ```
 
@@ -60,10 +60,10 @@ java -jar target/card-platform-*.jar
 
 ```bash
 # Unit tests only (fast, no containers)
-./mvnw test
+mvn test
 
 # Unit + integration tests (requires Docker for Testcontainers)
-./mvnw verify
+mvn verify
 ```
 
 ### Key endpoints
