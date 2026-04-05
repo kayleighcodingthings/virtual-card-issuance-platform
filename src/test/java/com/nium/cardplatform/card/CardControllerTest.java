@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -214,10 +215,14 @@ class CardControllerTest {
         @Test
         @DisplayName("PATCH with invalid status returns 422")
         void invalidStatus_returns422() throws Exception {
+            when(cardService.updateCardStatus(any(), eq(CardStatus.EXPIRED)))
+                    .thenThrow(CardPlatformException.invalidTransition("current", "EXPIRED"));
+
+
             mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"status": "CLOSED"}
+                                    {"status": "EXPIRED"}
                                     """))
                     .andExpect(status().isUnprocessableEntity());
         }
