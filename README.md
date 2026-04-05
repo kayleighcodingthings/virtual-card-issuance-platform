@@ -70,18 +70,17 @@ mvn verify
 
 ### Key endpoints
 
-| Method | Path                         | Notes                             |
-|--------|------------------------------|-----------------------------------|
-| `POST` | `/api/v1/cards`              | Create card                       |
-| `GET`  | `/api/v1/cards/{id}`         | Card details                      |
-| `POST` | `/api/v1/cards/{id}/debit`   | Requires `Idempotency-Key` header |
-| `POST` | `/api/v1/cards/{id}/credit`  | Requires `Idempotency-Key` header |
-| `GET`  | `/api/v1/cards/{id}/history` | Paginated (`?page=0&size=20`)     |
-| `POST` | `/api/v1/cards/{id}/block`   |                                   |
-| `POST` | `/api/v1/cards/{id}/unblock` |                                   |
-| `POST` | `/api/v1/cards/{id}/close`   | Terminal state                    |
-| `GET`  | `/actuator/health`           | Health check                      |
-| `GET`  | `/actuator/prometheus`       | Micrometer metrics                |
+| Method   | Path                         | Notes                             |
+|----------|------------------------------|-----------------------------------|
+| `POST`   | `/api/v1/cards`              | Create card                       |
+| `GET`    | `/api/v1/cards/{id}`         | Card details                      |
+| `PATCH`  | `/api/v1/cards/{id}`         | Update status (block/unblock)     |
+| `DELETE` | `/api/v1/cards/{id}`         | Close card (terminal)             |
+| `POST`   | `/api/v1/cards/{id}/debit`   | Requires `Idempotency-Key` header |
+| `POST`   | `/api/v1/cards/{id}/credit`  | Requires `Idempotency-Key` header |
+| `GET`    | `/api/v1/cards/{id}/history` | Paginated (`?page=0&size=20`)     |
+| `GET`    | `/actuator/health`           | Health check                      |
+| `GET`    | `/actuator/prometheus`       | Micrometer metrics                |
 
 ### Example requests
 
@@ -91,13 +90,13 @@ curl -X POST http://localhost:8080/api/v1/cards \
   -H "Content-Type: application/json" \
   -d '{"cardholderName":"Alice Smith","initialBalance":500.00}'
 
-# Spend
+# Debit
 curl -X POST http://localhost:8080/api/v1/cards/{id}/debit \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"amount":50.00}'
 
-# Top-up
+# Credit
 curl -X POST http://localhost:8080/api/v1/cards/{id}/credit \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -115,7 +114,7 @@ important in a financial system, where the complexity of the domain can easily l
 ```
 com.nium.cardplatform
 ├── card/           Card lifecycle, expiry scheduler
-├── transaction/    Spend, top-up, idempotency, history
+├── transaction/    Debit, credit, idempotency, history
 ├── audit/          Kafka publisher and consumer
 └── shared/         Exceptions, AOP aspect, rate limiter, config
 ```
@@ -299,7 +298,7 @@ app:
 
 **Production overrides:** set `audit-topic-partitions: 24` for higher consumer parallelism and `audit-topic-replicas: 3`
 with `min.insync.replicas=2` for fault tolerance. Without sufficient replicas, a single broker going down for
-maintenance or upgrade will cause audit event loss — partitions with no available replica become unavailable until the
+maintenance or upgrade will cause audit event loss - partitions with no available replica become unavailable until the
 broker returns.
 
 ### AOP Logging Aspect
@@ -319,6 +318,24 @@ allows short bursts up to the bucket capacity while enforcing a sustained rate l
 
 Bucket state is currently held in a `ConcurrentHashMap`. In a multi-instance deployment, replace with a Redis-backed
 `Bucket4j Proxy Manager`- the `RateLimitInterceptor` remains unchanged.
+
+### RESTful API Design - Card Status and Transactions
+
+Card status transitions are modelled as resource mutations rather than RPC-style verb endpoints:
+
+- **`PATCH /api/v1/cards/{id}`** with `{"status": "BLOCKED"}` or `{"status": "ACTIVE"}` - the card is the resource,
+  its status is a property being partially updated.
+- **`DELETE /api/v1/cards/{id}`** - closure is a terminal retirement of the resource.
+
+**Why debit and credit remain as separate `POST` endpoints rather than `POST /transactions`:**
+
+The RESTful alternative would be `POST /api/v1/cards/{id}/transactions` with `{"type": "DEBIT", "amount": 50.00}` -
+treating the transaction as a sub-resource being created. The current design keeps debit and credit as separate
+endpoints intentionally for operational reasons: separate endpoints allow independent rate limiting, monitoring,
+alerting, and access control policies per operation type. API gateways, load balancers, and WAFs can route, throttle,
+or disable debits independently of credits based on the URL path alone - without inspecting the request body. In a
+financial system where you may need to freeze all debits during an incident while keeping credits operational, this
+separation is a practical advantage over strict REST purity.
 
 ---
 
@@ -386,7 +403,7 @@ Any method exceeding 500ms is logged at WARN to surface slow operations without 
 | No OpenAPI spec              | Manual curl examples in README                                                                 | Springdoc OpenAPI (`/swagger-ui.html`) auto-generated from controllers                                                                                    |
 | Audit is fire-and-forget     | `@Async` Kafka publish after commit - no delivery guarantee if the process crashes post-commit | Transactional outbox pattern with Debezium CDC for guaranteed at-least-once delivery                                                                      |
 | Single-node Quartz scheduler | `isClustered=false` - two instances would double-fire the expiry job                           | Quartz JDBC clustering with `isClustered=true` and a shared job store                                                                                     |
-| Zookeeper-based Kafka        | `docker-compose` uses `cp-kafka:7.6.0` with Zookeeper for broker coordination                  | KRaft mode (Kafka Raft) — Zookeeper was deprecated in Kafka 3.5 and removed in 4.0. No application code changes required, only a docker-compose migration |
+| Zookeeper-based Kafka        | `docker-compose` uses `cp-kafka:7.6.0` with Zookeeper for broker coordination                  | KRaft mode (Kafka Raft) - Zookeeper was deprecated in Kafka 3.5 and removed in 4.0. No application code changes required, only a docker-compose migration |
 
 ### Test Coverage Note
 
@@ -415,7 +432,7 @@ Two targeted tests were added to complement the integration suite:
 - **Card number generation** - Luhn checksum validation, PAN tokenisation via a vault.
 - **OpenAPI / Swagger** - add `springdoc-openapi-starter-webmvc-ui`.
 - **Soft deletes** - add `deleted_at` column to `card` instead of hard deletes.
-- **Daily / monthly spend limits** - add a `CardLimit` entity with configurable per-period caps.
+- **Daily / monthly debit limits** - add a `CardLimit` entity with configurable per-period caps.
 - **Per-card rate limiting** - extend `RateLimitInterceptor` to bucket on `cardId` for financial ops, in addition to the
   global IP bucket.
 - **Metrics dashboards** - Grafana dashboards on top of the Prometheus endpoint (`/actuator/prometheus`).
@@ -444,5 +461,5 @@ Two targeted tests were added to complement the integration suite:
       separate history table unnecessary.
 - **Authentication and authorisation** - all endpoints are currently unprotected. In production, card issuance and
   status management (block/unblock/close) would be restricted to authenticated business accounts via API key or OAuth2
-  client credentials. Spend and topup would require cardholder-level authentication. Spring Security with
+  client credentials. Debit and Credit would require cardholder-level authentication. Spring Security with
   `@PreAuthorize` annotations would enforce this at the controller layer without touching business logic.

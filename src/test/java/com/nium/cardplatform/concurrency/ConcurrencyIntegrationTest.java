@@ -85,14 +85,14 @@ class ConcurrencyIntegrationTest extends BaseIntegrationTest {
                 .as("Balance must never go below zero")
                 .isGreaterThanOrEqualTo(BigDecimal.ZERO);
 
-        // invariant 2 — balance is exactly zero (all valid spends consumed)
+        // invariant 2 — balance is exactly zero (all valid debits consumed)
         assertThat(result.getBalance())
-                .as("Final balance should be exactly 0.00 — all 25 allowed spends consumed")
+                .as("Final balance should be exactly 0.00 — all 25 allowed debits consumed")
                 .isEqualByComparingTo(BigDecimal.ZERO);
 
         // invariant 3 — application layer counted 25 successes
         assertThat(successCount.get())
-                .as("Exactly 25 of 50 spend attempts should succeed")
+                .as("Exactly 25 of 50 debit attempts should succeed")
                 .isEqualTo(25);
 
         long dbSuccessful = transactionRepository.countByCardIdAndStatus(card.getId(), TransactionStatus.SUCCESSFUL);
