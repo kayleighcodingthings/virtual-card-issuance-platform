@@ -181,7 +181,7 @@ class CardControllerTest {
         @DisplayName("block - valid cardId returns 200 with updated card status")
         void block_validId_returns200() throws Exception {
             Card mockCard = mockCard(CardStatus.BLOCKED);
-            when(cardService.blockCard(any())).thenReturn(mockCard);
+            when(cardService.updateCardStatus(any(), any())).thenReturn(mockCard);
 
             mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
                             .contentType(MediaType.APPLICATION_JSON)
@@ -198,7 +198,7 @@ class CardControllerTest {
         @DisplayName("unblock - valid cardId returns 200 with updated card status")
         void unblock_validId_returns200() throws Exception {
             Card mockCard = mockCard(CardStatus.ACTIVE);
-            when(cardService.unblockCard(any())).thenReturn(mockCard);
+            when(cardService.updateCardStatus(any(), any())).thenReturn(mockCard);
 
             mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
                             .contentType(MediaType.APPLICATION_JSON)
@@ -296,6 +296,15 @@ class CardControllerTest {
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isMethodNotAllowed())
                     .andExpect(jsonPath("$.errorCode").value("METHOD_NOT_ALLOWED"));
+        }
+
+        @Test
+        @DisplayName("GET on non existent resource return 404 RESOURCE_NOT_FOUND")
+        void nonexistentResource_returns404() throws Exception {
+            mockMvc.perform(get("/api/v1/bad-resource")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"));
         }
     }
 

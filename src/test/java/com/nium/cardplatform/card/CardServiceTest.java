@@ -101,7 +101,7 @@ class CardServiceTest {
             when(cardRepository.findById(card.getId())).thenReturn(Optional.of(card));
             when(cardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-            Card result = sut.blockCard(card.getId());
+            Card result = sut.updateCardStatus(card.getId(), CardStatus.BLOCKED);
 
             assertThat(result.getStatus()).isEqualTo(CardStatus.BLOCKED);
             verify(eventPublisher).publishEvent(any(CardAuditEvent.class));
@@ -114,7 +114,7 @@ class CardServiceTest {
             card.setStatus(CardStatus.BLOCKED);
             when(cardRepository.findById(card.getId())).thenReturn(Optional.of(card));
 
-            sut.blockCard(card.getId());
+            sut.updateCardStatus(card.getId(), CardStatus.BLOCKED);
 
             verify(cardRepository, never()).save(any());
         }
@@ -126,7 +126,7 @@ class CardServiceTest {
             card.setStatus(CardStatus.CLOSED);
             when(cardRepository.findById(card.getId())).thenReturn(Optional.of(card));
 
-            assertThatThrownBy(() -> sut.blockCard(card.getId()))
+            assertThatThrownBy(() -> sut.updateCardStatus(card.getId(), CardStatus.BLOCKED))
                     .isInstanceOf(CardPlatformException.class);
         }
     }

@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
 import java.util.Map;
@@ -78,6 +79,12 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         return problem(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
                 e.getMethod() + " is not supported for this endpoint");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResourceFound(NoResourceFoundException e) {
+        return problem(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND",
+                "No endpoint found for " + e.getHttpMethod() + " " + e.getResourcePath());
     }
 
     @ExceptionHandler(Exception.class)

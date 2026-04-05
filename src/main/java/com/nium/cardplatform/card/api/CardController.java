@@ -50,15 +50,7 @@ public class CardController {
             @PathVariable UUID cardId,
             @Valid @RequestBody CardDtos.PatchCardRequest request) {
         MDC.put("cardId", cardId.toString());
-
-        Card result = switch (request.status()) {
-            case BLOCKED -> cardService.blockCard(cardId);
-            case ACTIVE -> cardService.unblockCard(cardId);
-            default -> throw CardPlatformException.invalidTransition(
-                    "current", request.status().name());
-        };
-
-        return ResponseEntity.ok(toResponse(result));
+        return ResponseEntity.ok(toResponse(cardService.updateCardStatus(cardId, request.status())));
     }
 
     /**
