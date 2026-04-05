@@ -12,6 +12,7 @@ public enum CardStatus {
      * <p>CLOSED and EXPIRED are both terminal — no further transactions or status
      * transitions (except CLOSED → CLOSED idempotently) are permitted.
      * BLOCKED is intentionally excluded: a blocked card can still be unblocked.
+     *
      * @return {@code true} for CLOSED and EXPIRED; {@code false} for ACTIVE and BLOCKED
      */
     public boolean isTerminated() {

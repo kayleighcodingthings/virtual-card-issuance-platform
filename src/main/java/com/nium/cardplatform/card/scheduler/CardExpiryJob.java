@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -39,6 +38,7 @@ public class CardExpiryJob implements Job {
 
         if (expiredCards.isEmpty()) {
             log.debug("No cards to expire at {}", now);
+            return;
         }
 
         log.info("Found {} expired card(s) to process", expiredCards.size());

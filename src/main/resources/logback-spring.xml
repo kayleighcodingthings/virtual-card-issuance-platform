@@ -8,7 +8,7 @@
                     converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
 
     <!-- Production — structured JSON with MDC fields -->
-    <springProfile name="!test,!local">
+    <springProfile name="!local">
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
                 <includeMdcKeyName>requestId</includeMdcKeyName>
@@ -25,24 +25,13 @@
     <springProfile name="local">
         <appender name="CONSOLE_COLOUR" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%d{HH:mm:ss.SSS} %clr(%-5level){DEBUG->blue, INFO->green, WARN->yellow, ERROR->red} [%15.15thread] %clr(%40.40logger{40}){cyan} [%X{requestId}] : %msg%n%wex</pattern>
+                <pattern>%d{HH:mm:ss.SSS} %clr(%-5level){DEBUG->blue, INFO->green, WARN->yellow, ERROR->red}
+                    [%15.15thread] %clr(%40.40logger{40}){cyan} [%X{requestId}] : %msg%n%wex
+                </pattern>
             </encoder>
         </appender>
         <root level="INFO">
             <appender-ref ref="CONSOLE_COLOUR"/>
-        </root>
-        <logger name="com.nium.cardplatform" level="DEBUG"/>
-    </springProfile>
-
-    <!-- Test — plain console, quiet by default -->
-    <springProfile name="test">
-        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>%d{HH:mm:ss} %-5level [%X{requestId}] %logger{36} - %msg%n</pattern>
-            </encoder>
-        </appender>
-        <root level="WARN">
-            <appender-ref ref="CONSOLE"/>
         </root>
         <logger name="com.nium.cardplatform" level="DEBUG"/>
     </springProfile>

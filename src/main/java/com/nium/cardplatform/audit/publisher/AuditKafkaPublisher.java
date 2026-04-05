@@ -36,7 +36,7 @@ public class AuditKafkaPublisher {
      *
      * @param event the audit event to publish
      */
-    @Async
+    @Async("auditExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onAuditEvent(CardAuditEvent event) {
         AuditMessage message = AuditMessage.builder()

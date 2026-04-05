@@ -1,6 +1,5 @@
 package com.nium.cardplatform.shared.events;
 
-import com.nium.cardplatform.audit.publisher.AuditKafkaPublisher;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -10,7 +9,7 @@ import java.util.UUID;
 
 /**
  * Internal Spring ApplicationEvent published after successful operations.
- * Consumed by {@link AuditKafkaPublisher} which forwards them to Kafka.
+ * Consumed by AuditKafkaPublisher which forwards them to Kafka.
  * <p>Using Spring events (not direct Kafka calls from services) decouples
  * the audit concern from business logic. If Kafka is unavailable the
  * business transaction still commits — audit is best-effort.

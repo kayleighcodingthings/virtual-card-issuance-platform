@@ -23,7 +23,6 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <logstash-logback.version>7.4</logstash-logback.version>
-        <kotlin.version>2.3.10</kotlin.version>
     </properties>
     <dependencies>
 
@@ -138,17 +137,6 @@
             <artifactId>kafka</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib-jdk8</artifactId>
-            <version>${kotlin.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-test</artifactId>
-            <version>${kotlin.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
@@ -209,30 +197,6 @@
                         <include>**/*IntegrationTest.java</include>
                         <include>**/*ConcurrencyTest.java</include>
                     </includes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-maven-plugin</artifactId>
-                <version>${kotlin.version}</version>
-                <executions>
-                    <execution>
-                        <id>compile</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>test-compile</id>
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>test-compile</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <jvmTarget>1.8</jvmTarget>
                 </configuration>
             </plugin>
             <plugin>

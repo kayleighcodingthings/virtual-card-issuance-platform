@@ -6,7 +6,6 @@ import com.nium.cardplatform.card.repository.CardRepository;
 import com.nium.cardplatform.card.service.CardService;
 import com.nium.cardplatform.shared.events.CardAuditEvent;
 import com.nium.cardplatform.shared.exception.CardPlatformException;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

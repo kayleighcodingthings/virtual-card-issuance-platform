@@ -12,7 +12,8 @@ import java.util.UUID;
 
 public final class TransactionDtos {
 
-    private TransactionDtos() {}
+    private TransactionDtos() {
+    }
 
     // --- Requests ---
 
@@ -22,7 +23,8 @@ public final class TransactionDtos {
             @DecimalMin(value = "0.01", message = "amount must be greater than zero")
             @Digits(integer = 15, fraction = 2, message = "amount must have at most 2 decimal places")
             BigDecimal amount
-    ) {}
+    ) {
+    }
 
     @Builder
     public record CreditRequest(
@@ -30,7 +32,8 @@ public final class TransactionDtos {
             @DecimalMin(value = "0.01", message = "amount must be greater than zero")
             @Digits(integer = 15, fraction = 2, message = "amount must have at most 2 decimal places")
             BigDecimal amount
-    ) {}
+    ) {
+    }
 
     // --- Responses ---
 
@@ -44,7 +47,8 @@ public final class TransactionDtos {
             String declineReason,
             String idempotencyKey,
             LocalDateTime createdAt
-    ) {}
+    ) {
+    }
 
     @Builder
     public record PagedTransactionResponse(
@@ -54,5 +58,6 @@ public final class TransactionDtos {
             long totalElements,
             int totalPages,
             boolean last
-    ) {}
+    ) {
+    }
 }

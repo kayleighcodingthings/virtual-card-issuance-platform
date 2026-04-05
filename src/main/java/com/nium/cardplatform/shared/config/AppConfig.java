@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
@@ -22,8 +23,8 @@ import java.util.concurrent.Executor;
  * Application-wide bean configuration: Jackson, Micrometer, async execution, and Kafka topics.
  */
 @Configuration
-class AppConfig
-{
+@EnableAsync
+class AppConfig {
 
     // --- Jackson ---
 
@@ -45,6 +46,7 @@ class AppConfig
     }
 
     // --- Micrometer @Timed support ---
+
     /**
      * Enables {@link Timed} as an AOP annotation.
      * Without this bean, {@code @Timed} on service methods is silently ignored.

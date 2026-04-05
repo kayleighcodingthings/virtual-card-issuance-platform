@@ -110,11 +110,13 @@ public class TransactionService {
      * {@link PessimisticLockingFailureException} (SQLState 40001).
      * Both are subclasses of {@link TransientDataAccessException}
      * and are retried up to {@code maxRetries} times with exponential back-off.
+     *
      * @param cardId         the card to credit
      * @param amount         the amount to add; must be positive
      * @param idempotencyKey caller-supplied key guaranteeing exactly-once processing
      * @return the resulting {@link Transaction}
      */
+    @Timed(value = "transaction.credit.time", description = "Time taken to process a credit")
     public Transaction credit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
                 .orElseGet(() -> executeCreditWithRetry(cardId, amount, idempotencyKey, 0));

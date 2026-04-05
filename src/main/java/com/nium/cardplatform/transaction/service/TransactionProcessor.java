@@ -61,6 +61,7 @@ public class TransactionProcessor {
      * <p>REPEATABLE_READ ensures that concurrent transactions racing on the same card
      * will trigger a version conflict (caught by the caller's retry loop) rather than
      * silently producing a negative balance.
+     *
      * @param cardId         the card to debit
      * @param amount         the amount to deduct; must be positive
      * @param idempotencyKey the idempotency key for the transaction record
@@ -122,12 +123,13 @@ public class TransactionProcessor {
      *   <li>Apply the credit and save the updated card.</li>
      *   <li>Mark the transaction SUCCESSFUL and publish an audit event.</li>
      * </ol>
+     *
      * @param cardId         the card to credit
      * @param amount         the amount to add; must be positive
      * @param idempotencyKey the idempotency key for the transaction record
      * @return the resulting {@link Transaction}
      * @throws com.nium.cardplatform.shared.exception.CardPlatformException on card not found
-     *         or card not active
+     *                                                                      or card not active
      */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public Transaction processCredit(UUID cardId, BigDecimal amount, String idempotencyKey) {

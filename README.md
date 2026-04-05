@@ -405,19 +405,6 @@ Two targeted tests were added to complement the integration suite:
   polling approach with a targeted `status = ACTIVE` filter scales better and handles card closure and expiry date
   changes for free. A hybrid approach - polling for bulk expiry, per-card jobs for precision-sensitive notifications
   like "expiry warning emails" - would be the production choice.
-- **Hibernate Envers for Card revision history** - the `Card` entity changes state across its lifecycle (balance
-  mutations, status transitions). Spring Data Envers would automatically capture a full point-in-time snapshot at every
-  revision, enabling queries like "what was the balance at time T?" without manual audit logic. Not included here
-  because the Kafka audit pipeline already covers the audit requirement from the spec, and adding both would create two
-  overlapping mechanisms with no clear source of truth. The right trigger for adding Envers would be a regulatory
-  requirement for point-in-time balance reconstruction or immutable audit snapshots. Note: Envers is not useful on
-  `Transaction` since transactions are already immutable records.
-- **Card status change reasons** - block, unblock, and close operations currently record the status transition in the
-  audit log but not the reason. A production system would accept an optional `reason` string on each status change
-  endpoint and persist it - either as a `last_status_reason` column on the `card` table for the current reason, or as a
-  separate `card_status_history` table for a full point-in-time audit trail of every transition with its reason,
-  timestamp, and actor. The `CardAuditEvent` already publishes status changes to Kafka so the downstream audit consumer
-  could be extended to store this history without touching the core card service.
 - **Deeper audit history** - two complementary enhancements would round out the audit story
   for a production system:
     - *Point-in-time balance reconstruction via Hibernate Envers* - the `Card` entity changes

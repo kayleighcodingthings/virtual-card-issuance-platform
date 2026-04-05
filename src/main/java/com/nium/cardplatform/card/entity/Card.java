@@ -1,6 +1,5 @@
 package com.nium.cardplatform.card.entity;
 
-import com.nium.cardplatform.transaction.service.TransactionService;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -57,7 +56,7 @@ public class Card {
      * If two concurrent transactions both read version=N and both attempt to commit,
      * the second write affects 0 rows and Hibernate throws
      * {@link ObjectOptimisticLockingFailureException},
-     * which {@link TransactionService} catches and retries.
+     * which TransactionService catches and retries.
      */
     @Version
     @Column(name = "version", nullable = false)
@@ -75,8 +74,9 @@ public class Card {
 
     /**
      * Debits the card balance
+     *
      * @param amount the amount to remove from the balance; must be positive
-     * @throws IllegalArgumentException if {@code amount} is zero or negative
+     * @throws IllegalArgumentException   if {@code amount} is zero or negative
      * @throws InsufficientFundsException if the resulting balance would be negative.
      */
     public void debit(BigDecimal amount) {
@@ -92,6 +92,7 @@ public class Card {
 
     /**
      * Credits the card balance by the given amount.
+     *
      * @param amount the amount to add to the balance; must be positive
      * @throws IllegalArgumentException if {@code amount} is zero or negative
      */
