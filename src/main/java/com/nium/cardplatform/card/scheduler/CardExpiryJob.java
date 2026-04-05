@@ -15,6 +15,14 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Quartz job that expires ACTIVE cards past their {@code expiresAt} date.
+ * <p>{@link DisallowConcurrentExecution} prevents two scheduler threads from
+ * running the batch simultaneously — without it, a slow run could overlap
+ * with the next trigger and double-expire cards.
+ * <p>Each card is expired in its own transaction via {@link CardService#expireCard},
+ * so a single failure does not roll back the entire batch.
+ */
 @Slf4j
 @Component
 @DisallowConcurrentExecution

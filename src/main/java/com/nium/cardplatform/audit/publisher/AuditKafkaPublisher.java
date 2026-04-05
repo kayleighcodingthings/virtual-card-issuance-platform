@@ -28,6 +28,14 @@ public class AuditKafkaPublisher {
     @Value("${app.kafka.topics.audit-events:card-audit-events}")
     private String auditTopic;
 
+    /**
+     * Receives a {@link CardAuditEvent} after the business transaction commits
+     * and publishes it to Kafka asynchronously on the {@code auditExecutor} thread pool.
+     * <p>Kafka send failures are logged but never rethrown — a publish failure
+     * must not affect the already-committed business operation.
+     *
+     * @param event the audit event to publish
+     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onAuditEvent(CardAuditEvent event) {

@@ -17,6 +17,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
 
+    /** Used to verify the exact number of SUCCESSFUL transactions in concurrency tests. */
     long countByCardIdAndStatus(UUID cardId, TransactionStatus status);
 
 }
