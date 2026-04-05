@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.RoundingMode;
 import java.util.UUID;
 
 @RestController
@@ -79,7 +80,7 @@ public class CardController {
         return CardDtos.CardResponse.builder()
                 .id(c.getId())
                 .cardholderName(c.getCardholderName())
-                .balance(c.getBalance().stripTrailingZeros())
+                .balance(c.getBalance().setScale(2, RoundingMode.HALF_UP))
                 .status(c.getStatus().name())
                 .expiresAt(c.getExpiresAt())
                 .createdAt(c.getCreatedAt())

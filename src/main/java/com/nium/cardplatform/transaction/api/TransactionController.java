@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.RoundingMode;
 import java.util.UUID;
 
 @RestController
@@ -69,7 +70,7 @@ public class TransactionController {
                 .id(txn.getId())
                 .cardId(txn.getCardId())
                 .type(txn.getType().name())
-                .amount(txn.getAmount().stripTrailingZeros())
+                .amount(txn.getAmount().setScale(2, RoundingMode.HALF_UP))
                 .status(txn.getStatus().name())
                 .declineReason(txn.getDeclineReason())
                 .idempotencyKey(txn.getIdempotencyKey())
