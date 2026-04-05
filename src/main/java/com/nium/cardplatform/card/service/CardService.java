@@ -61,7 +61,7 @@ public class CardService {
         Card saved = cardRepository.save(card);
         cardsCreatedCounter.increment();
         log.info("Card created: cardId={} cardholder={}", saved.getId(), saved.getCardholderName());
-        eventPublisher.publishEvent(CardAuditEvent.onCreateCard(saved.getId(), saved.getCardholderName()));
+        eventPublisher.publishEvent(CardAuditEvent.onCreateCard(saved.getId(), saved.getCardholderName(), initialBalance));
         return saved;
     }
 
@@ -71,7 +71,16 @@ public class CardService {
     }
 
     @Transactional
-    public Card blockCard(UUID cardId) {
+    public Card updateCardStatus(UUID cardId, CardStatus status) {
+        return switch (status) {
+            case BLOCKED -> blockCard(cardId);
+            case ACTIVE -> unblockCard(cardId);
+            default -> throw CardPlatformException.invalidTransition(
+                    "current", status.name());
+        };
+    }
+
+    private Card blockCard(UUID cardId) {
         Card card = findOrThrow(cardId);
         if (card.isTerminated()) {
             throw CardPlatformException.cardTerminated(cardId, card.getStatus().name());
@@ -90,8 +99,7 @@ public class CardService {
         return saved;
     }
 
-    @Transactional
-    public Card unblockCard(UUID cardId) {
+    private Card unblockCard(UUID cardId) {
         Card card = findOrThrow(cardId);
         if (card.isTerminated()) {
             throw CardPlatformException.cardTerminated(cardId, card.getStatus().name());

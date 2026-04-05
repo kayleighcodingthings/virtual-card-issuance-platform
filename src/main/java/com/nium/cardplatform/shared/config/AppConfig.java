@@ -4,17 +4,24 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nium.cardplatform.audit.consumer.AuditEventConsumer;
+import com.nium.cardplatform.audit.event.AuditMessage;
 import com.nium.cardplatform.audit.publisher.AuditKafkaPublisher;
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.aop.TimedAspect;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -59,6 +66,28 @@ class AppConfig {
     @Bean
     public TimedAspect timedAspect(MeterRegistry registry) {
         return new TimedAspect(registry);
+    }
+
+    // --- Kafka producer with custom ObjectMapper ---
+
+    /**
+     * Provides a {@link KafkaTemplate} whose {@link JsonSerializer} uses the application's
+     * {@link ObjectMapper} (with {@link JavaTimeModule} registered).
+     * <p>Without this, Spring Kafka's auto-configured producer creates its own {@code ObjectMapper}
+     * that lacks the {@code JavaTimeModule}, causing {@code LocalDateTime} to serialize as
+     * {@code [2026,4,5,22,14,9,...]} instead of ISO-8601 {@code "2026-04-05T22:14:09"}.
+     */
+    @Bean
+    public KafkaTemplate<String, AuditMessage> kafkaTemplate(
+            KafkaProperties springKafkaProperties,
+            ObjectMapper objectMapper) {
+        JsonSerializer<AuditMessage> valueSerializer = new JsonSerializer<>(objectMapper);
+        ProducerFactory<String, AuditMessage> factory = new DefaultKafkaProducerFactory<>(
+                springKafkaProperties.buildProducerProperties(null),
+                new StringSerializer(),
+                valueSerializer
+        );
+        return new KafkaTemplate<>(factory);
     }
 
     // --- Async executor for audit event publishing ---

@@ -25,10 +25,11 @@ public class CardAuditEvent {
     private final BigDecimal amount;
     private final LocalDateTime occurredAt;
 
-    public static CardAuditEvent onCreateCard(UUID cardId, String cardholderName) {
+    public static CardAuditEvent onCreateCard(UUID cardId, String cardholderName, BigDecimal initialBalance) {
         return CardAuditEvent.builder()
                 .eventType("CARD_CREATED")
                 .cardId(cardId)
+                .amount(initialBalance)
                 .detail("cardholder=" + cardholderName)
                 .occurredAt(LocalDateTime.now())
                 .build();
