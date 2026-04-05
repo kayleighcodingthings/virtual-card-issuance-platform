@@ -68,28 +68,6 @@ class AppConfig {
         return new TimedAspect(registry);
     }
 
-    // --- Kafka producer with custom ObjectMapper ---
-
-    /**
-     * Provides a {@link KafkaTemplate} whose {@link JsonSerializer} uses the application's
-     * {@link ObjectMapper} (with {@link JavaTimeModule} registered).
-     * <p>Without this, Spring Kafka's auto-configured producer creates its own {@code ObjectMapper}
-     * that lacks the {@code JavaTimeModule}, causing {@code LocalDateTime} to serialize as
-     * {@code [2026,4,5,22,14,9,...]} instead of ISO-8601 {@code "2026-04-05T22:14:09"}.
-     */
-    @Bean
-    public KafkaTemplate<String, AuditMessage> kafkaTemplate(
-            KafkaProperties springKafkaProperties,
-            ObjectMapper objectMapper) {
-        JsonSerializer<AuditMessage> valueSerializer = new JsonSerializer<>(objectMapper);
-        ProducerFactory<String, AuditMessage> factory = new DefaultKafkaProducerFactory<>(
-                springKafkaProperties.buildProducerProperties(null),
-                new StringSerializer(),
-                valueSerializer
-        );
-        return new KafkaTemplate<>(factory);
-    }
-
     // --- Async executor for audit event publishing ---
 
     /**
