@@ -1,5 +1,48 @@
-/.idea
-/.idea/workspace.xml
-/.idea/tasks.xml
+# ========================
+# Maven Build Output
+# ========================
+target/
+!.mvn/wrapper/maven-wrapper.jar
 
-/target
+# ========================
+# Compiled Class Files
+# ========================
+*.class
+
+# ========================
+# Packaged Artifacts
+# ========================
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# IntelliJ IDEA
+# ========================
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# ========================
+# OS-Specific Files
+# ========================
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+*.env
