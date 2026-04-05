@@ -238,4 +238,58 @@ class TransactionControllerTest {
         }
     }
 
+    // --- Error handling ---
+
+    @Nested
+    @DisplayName("Error handling")
+    class ErrorHandling {
+        @Test
+        @DisplayName("malformed JSON on debit returns 400 MALFORMED_REQUEST_BODY")
+        void malformedJson_debit_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header("Idempotency-Key", UUID.randomUUID().toString())
+                            .content("{ not valid json }"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("MALFORMED_REQUEST_BODY"));
+        }
+
+        @Test
+        @DisplayName("malformed JSON on credit returns 400 MALFORMED_REQUEST_BODY")
+        void malformedJson_credit_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards/{id}/credit", CARD_ID)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header("Idempotency-Key", UUID.randomUUID().toString())
+                            .content("{ not valid json }"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("MALFORMED_REQUEST_BODY"));
+        }
+
+        @Test
+        @DisplayName("missing body on debit returns 400 MALFORMED_REQUEST_BODY")
+        void missingBody_debit_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards/{id}/debit", CARD_ID)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header("Idempotency-Key", UUID.randomUUID().toString()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("MALFORMED_REQUEST_BODY"));
+        }
+
+        @Test
+        @DisplayName("GET on debit endpoint returns 405 METHOD_NOT_ALLOWED")
+        void wrongMethod_debit_returns405() throws Exception {
+            mockMvc.perform(get("/api/v1/cards/{id}/debit", CARD_ID))
+                    .andExpect(status().isMethodNotAllowed())
+                    .andExpect(jsonPath("$.errorCode").value("METHOD_NOT_ALLOWED"));
+        }
+
+        @Test
+        @DisplayName("GET on credit endpoint returns 405 METHOD_NOT_ALLOWED")
+        void wrongMethod_credit_returns405() throws Exception {
+            mockMvc.perform(get("/api/v1/cards/{id}/credit", CARD_ID))
+                    .andExpect(status().isMethodNotAllowed())
+                    .andExpect(jsonPath("$.errorCode").value("METHOD_NOT_ALLOWED"));
+        }
+    }
+
 }

@@ -252,6 +252,53 @@ class CardControllerTest {
         }
     }
 
+    // --- Error Handling ---
+
+    @Nested
+    @DisplayName("Error Handling")
+    class ErrorHandling {
+
+        @Test
+        @DisplayName("malformed JSON body returns 400 MALFORMED_REQUEST_BODY")
+        void malformedJson_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{ invalid json }"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("MALFORMED_REQUEST_BODY"));
+        }
+
+        @Test
+        @DisplayName("missing request body returns 400 MALFORMED_REQUEST_BODY")
+        void missingBody_returns400() throws Exception {
+            mockMvc.perform(post("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("MALFORMED_REQUEST_BODY"));
+        }
+
+        @Test
+        @DisplayName("invalid enum value in PATCH body returns 400 MALFORMED_REQUEST_BODY")
+        void invalidEnumValue_returns400() throws Exception {
+            mockMvc.perform(patch("/api/v1/cards/{id}", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"status": "BANANA"}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("MALFORMED_REQUEST_BODY"));
+        }
+
+        @Test
+        @DisplayName("GET on POST-only endpoint returns 405 METHOD_NOT_ALLOWED")
+        void wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/api/v1/cards")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isMethodNotAllowed())
+                    .andExpect(jsonPath("$.errorCode").value("METHOD_NOT_ALLOWED"));
+        }
+    }
+
     private Card mockCard(CardStatus status) {
         return Card.builder()
                 .id(UUID.randomUUID())
