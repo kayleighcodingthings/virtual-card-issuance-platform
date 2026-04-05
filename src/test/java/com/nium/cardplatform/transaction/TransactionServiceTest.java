@@ -82,6 +82,38 @@ class TransactionServiceTest {
         }
 
         @Test
+        @DisplayName("throws 409 CONFLICT when idempotency key reused with different amount")
+        void idempotencyConflict_differentAmount() {
+            Card card = activeCard(new BigDecimal("100.00"));
+            Transaction existing = successfulDebit(card.getId(), new BigDecimal("10.00"));
+
+            when(transactionRepository.findByIdempotencyKey("conflict-key"))
+                    .thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> sut.debit(card.getId(), new BigDecimal("99.00"), "conflict-key"))
+                    .isInstanceOf(CardPlatformException.class)
+                    .satisfies(ex -> assertThat(((CardPlatformException) ex).getErrorCode())
+                            .isEqualTo("IDEMPOTENCY_CONFLICT"));
+            verify(transactionProcessor, never()).processDebit(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("throws 409 CONFLICT when idempotency key reused with different cardId")
+        void idempotencyConflict_differentCard() {
+            Card card = activeCard(new BigDecimal("100.00"));
+            Transaction existing = successfulDebit(card.getId(), new BigDecimal("10.00"));
+
+            when(transactionRepository.findByIdempotencyKey("conflict-key-2"))
+                    .thenReturn(Optional.of(existing));
+
+            UUID differentCardId = UUID.randomUUID();
+            assertThatThrownBy(() -> sut.debit(differentCardId, new BigDecimal("10.00"), "conflict-key-2"))
+                    .isInstanceOf(CardPlatformException.class)
+                    .satisfies(ex -> assertThat(((CardPlatformException) ex).getErrorCode())
+                            .isEqualTo("IDEMPOTENCY_CONFLICT"));
+        }
+
+        @Test
         @DisplayName("delegates to processor and returns SUCCESSFUL transaction")
         void pendingThenSuccessful() {
             Card card = activeCard(new BigDecimal("200.00"));
@@ -295,6 +327,22 @@ class TransactionServiceTest {
             assertThat(result).isSameAs(existing);
             verify(cardService, never()).findOrThrow(any());
         }
+
+        @Test
+        @DisplayName("throws 409 CONFLICT when idempotency key reused with different amount")
+        void idempotencyConflict_differentAmount() {
+            Card card = activeCard(BigDecimal.ZERO);
+            Transaction existing = successfulCredit(card.getId(), new BigDecimal("50.00"));
+            when(transactionRepository.findByIdempotencyKey("conflict-credit"))
+                    .thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> sut.credit(card.getId(), new BigDecimal("999.00"), "conflict-credit"))
+                    .isInstanceOf(CardPlatformException.class)
+                    .satisfies(ex -> assertThat(((CardPlatformException) ex).getErrorCode())
+                            .isEqualTo("IDEMPOTENCY_CONFLICT"));
+            verify(transactionProcessor, never()).processCredit(any(), any(), any());
+        }
+
 
         @Test
         @DisplayName("processes pending credit transaction to successful")

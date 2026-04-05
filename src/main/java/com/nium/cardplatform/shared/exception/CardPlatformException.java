@@ -46,9 +46,13 @@ public class CardPlatformException extends RuntimeException {
         return new CardPlatformException(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_FUNDS", "Insufficient funds on card: " + cardId);
     }
 
+    public static CardPlatformException idempotencyConflict(String idempotencyKey) {
+        return new CardPlatformException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT",
+                "Idempotency key [" + idempotencyKey + "] already used with different request parameters");
+    }
+
     public static CardPlatformException internalError(String detail) {
         return new CardPlatformException(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", detail);
     }
-
 
 }

@@ -68,6 +68,7 @@ public class TransactionService {
     @Timed(value = "transaction.debit.time", description = "Time taken to process a debit")
     public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(existing -> validateIdempotencyOrThrow(existing, cardId, TransactionType.DEBIT, amount, idempotencyKey))
                 .orElseGet(() -> executeDebitWithRetry(cardId, amount, idempotencyKey, 0));
     }
 
@@ -119,6 +120,7 @@ public class TransactionService {
     @Timed(value = "transaction.credit.time", description = "Time taken to process a credit")
     public Transaction credit(UUID cardId, BigDecimal amount, String idempotencyKey) {
         return transactionRepository.findByIdempotencyKey(idempotencyKey)
+                .map(existing -> validateIdempotencyOrThrow(existing, cardId, TransactionType.CREDIT, amount, idempotencyKey))
                 .orElseGet(() -> executeCreditWithRetry(cardId, amount, idempotencyKey, 0));
     }
 
@@ -158,6 +160,21 @@ public class TransactionService {
     public Page<Transaction> getTransactions(UUID cardId, Pageable pageable) {
         cardService.findOrThrow(cardId);
         return transactionRepository.findByCardIdOrderByCreatedAtDesc(cardId, pageable);
+    }
+
+    private Transaction validateIdempotencyOrThrow(Transaction existing, UUID cardId, TransactionType expected, BigDecimal amount, String idempotencyKey) {
+        if (existing.getCardId().equals(cardId)
+                && existing.getType() == expected
+                && existing.getAmount().compareTo(amount) == 0) {
+            log.debug("Idempotent replay: idempotencyKey={} txId={}", idempotencyKey, existing.getId());
+            return existing;
+        }
+
+        log.warn("Idempotency conflict: key={} existingCardId={} existingType={} existingAmount={} "
+                        + "requestCardId={} requestType={} requestAmount={}",
+                idempotencyKey, existing.getCardId(), existing.getType(), existing.getAmount(),
+                cardId, expected, amount);
+        throw CardPlatformException.idempotencyConflict(idempotencyKey);
     }
 
     private void sleepBackoff(int attempt) {
