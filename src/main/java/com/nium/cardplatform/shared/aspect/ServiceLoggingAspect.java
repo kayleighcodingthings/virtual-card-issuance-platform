@@ -38,6 +38,7 @@ public class ServiceLoggingAspect {
         String methodName = pjp.getSignature().getName();
         long start = System.currentTimeMillis();
         boolean success = false;
+        Throwable thrown = null;
 
         log.debug(">> {}.{}", className, methodName);
 
@@ -45,6 +46,9 @@ public class ServiceLoggingAspect {
             Object result = pjp.proceed();
             success = true;
             return result;
+        } catch (Throwable t) {
+            thrown = t;
+            throw t;
         } finally {
             long elapsed = System.currentTimeMillis() - start;
             if (success) {
@@ -54,7 +58,8 @@ public class ServiceLoggingAspect {
                     log.debug("<< {}.{}() completed in {}ms", className, methodName, elapsed);
                 }
             } else {
-                log.warn("<< {}.{}() threw an exception after {}ms", className, methodName, elapsed);
+                log.warn("<< {}.{}() threw {} after {}ms: {}",
+                        className, methodName, thrown.getClass().getSimpleName(), elapsed, thrown.getMessage());
             }
         }
     }
