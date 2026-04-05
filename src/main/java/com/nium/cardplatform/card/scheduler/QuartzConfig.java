@@ -7,6 +7,12 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 
+/**
+ * Configures the Quartz job and trigger for card expiry.
+ * Uses {@code withMisfireHandlingInstructionNextWithExistingCount} so that
+ * if the scheduler was down during a scheduled fire time, it catches up with
+ * the next regular interval rather than firing immediately on restart.
+ */
 @Configuration
 public class QuartzConfig {
 

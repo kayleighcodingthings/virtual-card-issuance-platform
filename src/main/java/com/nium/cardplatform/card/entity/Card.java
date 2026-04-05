@@ -7,6 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -52,9 +53,11 @@ public class Card {
     private LocalDateTime updatedAt;
 
     /**
-     * Optimistic Locking version counter which JPA increments on every UPDATE.
-     * If two concurrent transactions both read version = N, and both try to write, the second transaction throws
-     * {@link OptimisticLockException} which is caught & retried in {@link TransactionService}
+     * JPA optimistic-locking version counter, incremented automatically on every UPDATE.
+     * If two concurrent transactions both read version=N and both attempt to commit,
+     * the second write affects 0 rows and Hibernate throws
+     * {@link ObjectOptimisticLockingFailureException},
+     * which {@link TransactionService} catches and retries.
      */
     @Version
     @Column(name = "version", nullable = false)

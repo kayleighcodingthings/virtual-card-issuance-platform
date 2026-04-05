@@ -59,12 +59,11 @@ public class TransactionService {
      * {@link PessimisticLockingFailureException} (SQLState 40001).
      * Both are subclasses of {@link TransientDataAccessException}
      * and are retried up to {@code maxRetries} times with exponential back-off.
-     * Unlike debits, a credit exhausting all retries is declined with
-     * {@code LOCK_CONTENTION_EXHAUSTED} rather than silently losing the top-up.
-     * @param cardId         the card to credit
-     * @param amount         the amount to add; must be positive
+     *
+     * @param cardId         the card to debit
+     * @param amount         the amount to deduct; must be positive
      * @param idempotencyKey caller-supplied key guaranteeing exactly-once processing
-     * @return the resulting {@link Transaction}
+     * @return the resulting {@link Transaction}, either from cache or freshly processed
      */
     @Timed(value = "transaction.debit.time", description = "Time taken to process a debit")
     public Transaction debit(UUID cardId, BigDecimal amount, String idempotencyKey) {
@@ -111,8 +110,6 @@ public class TransactionService {
      * {@link PessimisticLockingFailureException} (SQLState 40001).
      * Both are subclasses of {@link TransientDataAccessException}
      * and are retried up to {@code maxRetries} times with exponential back-off.
-     * Unlike debits, a credit exhausting all retries is declined with
-     * {@code LOCK_CONTENTION_EXHAUSTED} rather than silently losing the top-up.
      * @param cardId         the card to credit
      * @param amount         the amount to add; must be positive
      * @param idempotencyKey caller-supplied key guaranteeing exactly-once processing
